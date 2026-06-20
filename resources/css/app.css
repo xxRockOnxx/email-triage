@@ -1,0 +1,72 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+
+:root {
+  /* Surface */
+  --color-bg: #faf9f6;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f1efe9;
+  --color-border: #e3e0d8;
+
+  /* Ink */
+  --color-ink: #15171c;
+  --color-ink-soft: #5a5d68;
+  --color-ink-faint: #9a9ca5;
+
+  /* Accent */
+  --color-accent: #3d5a80;
+  --color-accent-soft: #e9eef4;
+
+  /* Urgency scale — deliberately desaturated, not traffic-light primaries */
+  --color-urgency-low: #8b8d98;
+  --color-urgency-medium: #b8862e;
+  --color-urgency-high: #c2542d;
+  --color-urgency-critical: #a8311f;
+
+  --color-urgency-low-bg: #f2f2f3;
+  --color-urgency-medium-bg: #fbf2e2;
+  --color-urgency-high-bg: #fbe9e1;
+  --color-urgency-critical-bg: #f8e2de;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono-tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Urgency spine — the signature element, reused on every list row */
+.urgency-spine {
+  width: 3px;
+  border-radius: 2px;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+
+.urgency-spine--low { background: var(--color-urgency-low); }
+.urgency-spine--medium { background: var(--color-urgency-medium); }
+.urgency-spine--high { background: var(--color-urgency-high); }
+.urgency-spine--critical { background: var(--color-urgency-critical); }
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,226 @@
+<script setup>
+import { ref, computed } from 'vue';
+import { router, useForm, Link } from '@inertiajs/vue3';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import UrgencyBadge from '@/Components/UrgencyBadge.vue';
+import CategoryPill from '@/Components/CategoryPill.vue';
+import ConfidenceMeter from '@/Components/ConfidenceMeter.vue';
+import ActionButton from '@/Components/ActionButton.vue';
+
+defineOptions({ layout: AppLayout });
+
+const props = defineProps({
+  email: { type: Object, required: true },
+  deanonymized_summary: { type: String, default: null },
+});
+
+const triage = computed(() => props.email.latest_triage_result);
+
+const showCorrectionPanel = ref(false);
+const showReplyDraft = ref(false);
+
+const correctionForm = useForm({
+  category_id: triage.value?.category_id ?? null,
+  urgency: triage.value?.urgency ?? 'low',
+  suggested_action: triage.value?.suggested_action ?? 'none',
+  note: '',
+});
+
+const replyForm = useForm({
+  body: triage.value?.suggested_reply_draft ?? '',
+});
+
+function approve() {
+  router.post(route('triage-results.approve', triage.value.id));
+}
+
+function submitCorrection() {
+  correctionForm.post(route('triage-results.correct', triage.value.id), {
+    onSuccess: () => { showCorrectionPanel.value = false; },
+  });
+}
+
+function archive() {
+  router.post(route('emails.archive', props.email.id));
+}
+
+function deleteEmail() {
+  router.post(route('emails.delete', props.email.id));
+}
+
+function flag() {
+  router.post(route('emails.flag', props.email.id));
+}
+
+function submitReplyDraft() {
+  replyForm.post(route('emails.reply-draft', props.email.id), {
+    onSuccess: () => { showReplyDraft.value = false; },
+  });
+}
+
+function formatDateTime(iso) {
+  return new Date(iso).toLocaleString(undefined, {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+}
+
+const STATUS_LABEL = {
+  needs_review: 'Needs review',
+  auto_filed: 'Auto-filed',
+  corrected: 'Corrected',
+};
+</script>
+
+<template>
+  <div class="max-w-3xl mx-auto px-8 py-8">
+    <Link :href="route('emails.index')" class="text-sm text-ink-soft hover:text-accent">&larr; Back to queue</Link>
+
+    <div class="mt-4 mb-6">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <h1 class="text-lg font-semibold text-ink truncate">
+            {{ email.anonymized_subject || '(no subject)' }}
+          </h1>
+          <p class="text-sm text-ink-soft mt-1">
+            From <span class="font-medium text-ink">{{ email.sender_name || email.sender_email }}</span>
+            <span class="text-ink-faint">· {{ email.sender_email }}</span>
+            <span class="mx-1.5 text-ink-faint">·</span>
+            <span class="font-mono-tabular">{{ formatDateTime(email.received_at) }}</span>
+          </p>
+        </div>
+        <UrgencyBadge v-if="triage" :urgency="triage.urgency" />
+      </div>
+    </div>
+
+    <!-- Triage summary card -->
+    <div v-if="triage" class="bg-surface border border-border rounded-lg p-5 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <CategoryPill v-if="triage.category" :name="triage.category.name" />
+          <CategoryPill v-else-if="triage.proposed_category_name" :name="triage.proposed_category_name" pending />
+          <span class="text-xs text-ink-faint font-mono-tabular uppercase tracking-wide">
+            {{ STATUS_LABEL[triage.status] }}
+          </span>
+        </div>
+        <ConfidenceMeter :confidence="triage.confidence" />
+      </div>
+
+      <p class="text-sm text-ink leading-relaxed mb-4">
+        {{ deanonymized_summary || triage.summary }}
+      </p>
+
+      <div v-if="triage.proposed_category_reasoning" class="text-xs text-ink-soft bg-surface-sunken rounded px-3 py-2 mb-4">
+        <span class="font-medium">Why a new category:</span> {{ triage.proposed_category_reasoning }}
+      </div>
+
+      <div class="text-xs text-ink-faint font-mono-tabular mb-4">
+        {{ triage.llm_backend }}/{{ triage.llm_model }} · suggested action: {{ triage.suggested_action }}
+      </div>
+
+      <!-- Review actions -->
+      <div v-if="triage.status === 'needs_review'" class="flex items-center gap-2 pt-3 border-t border-border">
+        <ActionButton label="Approve as-is" @click="approve" />
+        <ActionButton label="Correct…" @click="showCorrectionPanel = !showCorrectionPanel" />
+      </div>
+      <div v-else class="pt-3 border-t border-border">
+        <ActionButton label="Correct…" @click="showCorrectionPanel = !showCorrectionPanel" />
+      </div>
+
+      <!-- Correction panel -->
+      <div v-if="showCorrectionPanel" class="mt-4 pt-4 border-t border-border space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="text-xs text-ink-soft mb-1 block">Urgency</span>
+            <select
+              v-model="correctionForm.urgency"
+              class="w-full px-2.5 py-1.5 text-sm border border-border rounded-md bg-surface"
+            >
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </label>
+
+          <label class="block">
+            <span class="text-xs text-ink-soft mb-1 block">Suggested action</span>
+            <select
+              v-model="correctionForm.suggested_action"
+              class="w-full px-2.5 py-1.5 text-sm border border-border rounded-md bg-surface"
+            >
+              <option value="none">None</option>
+              <option value="reply">Reply</option>
+              <option value="archive">Archive</option>
+              <option value="delete">Delete</option>
+              <option value="flag">Flag</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="block">
+          <span class="text-xs text-ink-soft mb-1 block">Note (optional)</span>
+          <textarea
+            v-model="correctionForm.note"
+            rows="2"
+            placeholder="Why was this wrong? Helps future triage stay consistent."
+            class="w-full px-2.5 py-1.5 text-sm border border-border rounded-md bg-surface resize-none"
+          />
+        </label>
+
+        <div class="flex items-center gap-2">
+          <ActionButton label="Save correction" @click="submitCorrection" />
+          <button class="text-xs text-ink-faint hover:text-ink" @click="showCorrectionPanel = false">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-else class="bg-surface-sunken border border-border rounded-lg p-5 mb-4 text-sm text-ink-faint">
+      Triage in progress — check back shortly.
+    </div>
+
+    <!-- Email actions -->
+    <div class="flex items-center gap-2 mb-6">
+      <ActionButton label="Archive" @click="archive" />
+      <ActionButton label="Flag" @click="flag" />
+      <ActionButton label="Draft reply" @click="showReplyDraft = !showReplyDraft" />
+      <ActionButton label="Delete" variant="danger" confirm-message="Move this email to trash?" @click="deleteEmail" />
+    </div>
+
+    <div v-if="showReplyDraft" class="bg-surface border border-border rounded-lg p-5 mb-6">
+      <span class="text-xs text-ink-soft mb-2 block">
+        This creates a draft in Gmail — it will not be sent automatically.
+      </span>
+      <textarea
+        v-model="replyForm.body"
+        rows="6"
+        class="w-full px-3 py-2 text-sm border border-border rounded-md bg-surface resize-y mb-3"
+      />
+      <ActionButton label="Save as Gmail draft" @click="submitReplyDraft" />
+    </div>
+
+    <!-- Body -->
+    <div class="bg-surface border border-border rounded-lg p-5">
+      <h2 class="text-xs font-medium text-ink-soft uppercase tracking-wide mb-3">Message</h2>
+      <!-- body_enc is encrypted at rest in Postgres, but Eloquent's `encrypted`
+           cast transparently decrypts it on the way out — this is the real
+           plaintext body, safe to render here since this page is local-only. -->
+      <p class="text-sm text-ink whitespace-pre-wrap leading-relaxed">{{ email.body_enc }}</p>
+    </div>
+
+    <!-- Action history -->
+    <div v-if="email.actions_log?.length" class="mt-6">
+      <h2 class="text-xs font-medium text-ink-soft uppercase tracking-wide mb-2">Activity</h2>
+      <ul class="space-y-1.5">
+        <li
+          v-for="log in email.actions_log"
+          :key="log.id"
+          class="text-xs text-ink-faint font-mono-tabular flex items-center gap-2"
+        >
+          <span>{{ formatDateTime(log.executed_at) }}</span>
+          <span class="text-ink-soft">{{ log.action_type }}</span>
+          <span v-if="log.initiated_by === 'auto'" class="text-accent">(auto)</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+</template>

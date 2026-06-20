@@ -4,11 +4,9 @@ namespace App\Services\Imap;
 
 use App\Contracts\MailProviderContract;
 use App\DTOs\InboundEmail;
+use DirectoryTree\ImapEngine\Mailbox;
+use DirectoryTree\ImapEngine\Message;
 use Illuminate\Support\Facades\Log;
-use Webklex\PHPIMAP\ClientManager;
-use Webklex\PHPIMAP\Exceptions\ConnectionFailedException;
-use Webklex\PHPIMAP\Folder;
-use Webklex\PHPIMAP\Message as ImapMessage;
 
 /**
  * Gmail access via IMAP (fetch/archive/delete/label) + SMTP (drafts), using
@@ -25,7 +23,7 @@ use Webklex\PHPIMAP\Message as ImapMessage;
  */
 class ImapGmailProvider implements MailProviderContract
 {
-    private ClientManager $clientManager;
+    private ?Mailbox $mailbox = null;
 
     public function __construct(
         private readonly string $host,
@@ -33,9 +31,7 @@ class ImapGmailProvider implements MailProviderContract
         private readonly int $smtpPort,
         private readonly string $username,
         private readonly string $appPassword,
-    ) {
-        $this->clientManager = new ClientManager();
-    }
+    ) {}
 
     public function identifier(): string
     {
@@ -51,121 +47,134 @@ class ImapGmailProvider implements MailProviderContract
      */
     public function fetchNewMessages(?string $sinceCursor): array
     {
-        $client = $this->connect();
-        $inbox = $client->getFolder('INBOX');
+        $mailbox = $this->mailbox();
 
-        $sinceDate = $sinceCursor
-            ? new \DateTimeImmutable($sinceCursor)
-            : new \DateTimeImmutable('-'.config('gmail.initial_fetch_days', 3).' days');
+        try {
+            $inbox = $mailbox->inbox();
 
-        $query = $inbox->messages()->since($sinceDate)->leaveUnread();
+            $sinceDate = $sinceCursor
+                ? new \DateTimeImmutable($sinceCursor)
+                : new \DateTimeImmutable('-'.config('gmail.initial_fetch_days', 3).' days');
 
-        $messages = [];
-        foreach ($query->get() as $imapMessage) {
-            try {
-                $messages[] = $this->parseMessage($imapMessage);
-            } catch (\Throwable $e) {
-                // Don't let one malformed message kill the whole poll.
-                Log::warning('Failed to parse IMAP message, skipping', [
-                    'uid' => $imapMessage->getUid(),
-                    'error' => $e->getMessage(),
-                ]);
+            // leaveUnread() forces BODY.PEEK so fetching the messages does
+            // not mark them \Seen — we never alter mailbox state while polling.
+            $query = $inbox->messages()->since($sinceDate)->leaveUnread();
+
+            $messages = [];
+            foreach ($query->get() as $imapMessage) {
+                try {
+                    $messages[] = $this->parseMessage($imapMessage);
+                } catch (\Throwable $e) {
+                    // Don't let one malformed message kill the whole poll.
+                    Log::warning('Failed to parse IMAP message, skipping', [
+                        'uid' => $imapMessage->uid(),
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
+
+            return [
+                'messages' => $messages,
+                'next_cursor' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            ];
+        } finally {
+            $this->disconnect();
         }
-
-        $client->disconnect();
-
-        return [
-            'messages' => $messages,
-            'next_cursor' => (new \DateTimeImmutable())->format(DATE_ATOM),
-        ];
     }
 
-    private function connect(): \Webklex\PHPIMAP\Client
+    private function mailbox(): Mailbox
     {
-        $client = $this->clientManager->make([
+        if ($this->mailbox) {
+            return $this->mailbox;
+        }
+
+        $this->mailbox = new Mailbox([
             'host' => $this->host,
             'port' => $this->imapPort,
             'encryption' => 'ssl',
             'validate_cert' => true,
             'username' => $this->username,
             'password' => $this->appPassword,
-            'protocol' => 'imap',
         ]);
 
         try {
-            $client->connect();
-        } catch (ConnectionFailedException $e) {
+            // Force the lazy connection now so auth failures surface here with
+            // a helpful message rather than deep inside a query.
+            $this->mailbox->connect();
+        } catch (\Throwable $e) {
+            $this->mailbox = null;
             throw new \RuntimeException(
                 'IMAP connection failed. Verify GMAIL_APP_PASSWORD is a valid App Password '.
-                "(not your normal Gmail password) and that IMAP is enabled in Gmail settings: {$e->getMessage()}"
+                '(not your normal Gmail password) and that IMAP is enabled in Gmail settings: '.$e->getMessage()
             );
         }
 
-        return $client;
+        return $this->mailbox;
     }
 
-    private function parseMessage(ImapMessage $imapMessage): InboundEmail
+    private function disconnect(): void
     {
-        $from = $imapMessage->getFrom()[0] ?? null;
-        $senderEmail = $from?->mail ?? 'unknown@unknown';
-        $senderName = $from?->personal ?: null;
+        // ImapEngine's connection is lazy but not auto-closed, so we tear it
+        // down after each operation to avoid holding a Gmail session open
+        // between polls.
+        $this->mailbox?->disconnect();
+        $this->mailbox = null;
+    }
 
-        $bodyText = $imapMessage->getTextBody() ?: strip_tags($imapMessage->getHTMLBody() ?? '');
-        $bodyText = $this->stripQuotedReplies($bodyText);
+    private function parseMessage(Message $imapMessage): InboundEmail
+    {
+        $from = $imapMessage->from();
+        $senderEmail = $from?->email() ?? 'unknown@unknown';
+        $senderName = $from?->name() ?: null;
+
+        $bodyText = $imapMessage->text() ?: strip_tags($imapMessage->html() ?? '');
+        $bodyText = $this->stripQuotedReplies((string) $bodyText);
 
         $headers = [];
         foreach (['list-unsubscribe', 'reply-to', 'in-reply-to', 'references'] as $headerName) {
-            $value = $imapMessage->getHeader()->get($headerName);
+            $value = $imapMessage->header($headerName)?->getValue();
             if ($value) {
                 $headers[$headerName] = (string) $value;
             }
         }
 
-        $labels = $this->mapGmailImapFlagsToLabels($imapMessage);
-
         return new InboundEmail(
-            providerMessageId: (string) ($imapMessage->getMessageId() ?: $imapMessage->getUid()),
+            providerMessageId: (string) ($imapMessage->messageId() ?: $imapMessage->uid()),
             providerThreadId: $this->resolveThreadId($imapMessage),
             senderEmail: $senderEmail,
             senderName: $senderName,
-            subject: $imapMessage->getSubject() ?: '(no subject)',
+            subject: $imapMessage->subject() ?: '(no subject)',
             bodyText: $bodyText,
-            labels: $labels,
+            labels: $this->mapGmailImapFlagsToLabels($imapMessage),
             headers: $headers,
-            receivedAt: \DateTimeImmutable::createFromMutable($imapMessage->getDate()->toDate()),
+            receivedAt: $imapMessage->date()?->toDateTimeImmutable() ?? new \DateTimeImmutable('now'),
         );
     }
 
     /**
-     * Gmail exposes thread grouping via the X-GM-THRID extension when
-     * accessed over IMAP with Gmail's extensions enabled. Falls back to
-     * References/In-Reply-To-derived grouping if unavailable.
+     * Gmail's native X-GM-THRID is an IMAP FETCH attribute, not an RFC822
+     * header, so ImapEngine (which parses only BODY[HEADER]) cannot read it.
+     * Thread grouping therefore falls back to References / In-Reply-To.
      */
-    private function resolveThreadId(ImapMessage $imapMessage): string
+    private function resolveThreadId(Message $imapMessage): string
     {
-        $gmThrId = $imapMessage->getHeader()->get('x-gm-thrid');
-        if ($gmThrId) {
-            return (string) $gmThrId;
-        }
-
-        $references = (string) ($imapMessage->getHeader()->get('references') ?? '');
+        $references = (string) ($imapMessage->header('references')?->getValue() ?? '');
         if ($references) {
             // First reference in the chain is a stable proxy for thread root.
             preg_match('/<([^>]+)>/', $references, $matches);
 
-            return $matches[1] ?? (string) $imapMessage->getMessageId();
+            return $matches[1] ?? (string) ($imapMessage->messageId() ?? $imapMessage->uid());
         }
 
-        return (string) $imapMessage->getMessageId();
+        return (string) ($imapMessage->messageId() ?? $imapMessage->uid());
     }
 
-    private function mapGmailImapFlagsToLabels(ImapMessage $imapMessage): array
+    private function mapGmailImapFlagsToLabels(Message $imapMessage): array
     {
-        $flags = array_map('strtoupper', $imapMessage->getFlags()->toArray());
+        $flags = array_map('strtoupper', $imapMessage->flags());
         $labels = ['INBOX'];
 
-        if (in_array('FLAGGED', $flags)) {
+        if (in_array('\FLAGGED', $flags)) {
             $labels[] = 'IMPORTANT';
         }
 
@@ -193,53 +202,64 @@ class ImapGmailProvider implements MailProviderContract
     {
         // "Archive" in Gmail = remove from INBOX while keeping in All Mail.
         // Over IMAP this means moving out of the INBOX folder.
-        $message = $this->findByMessageId($providerMessageId);
-        $message?->move('[Gmail]/All Mail');
+        try {
+            $message = $this->findByMessageId($providerMessageId);
+            $message?->move('[Gmail]/All Mail');
+        } finally {
+            $this->disconnect();
+        }
     }
 
     public function deleteMessage(string $providerMessageId): void
     {
-        $message = $this->findByMessageId($providerMessageId);
-        $message?->move('[Gmail]/Trash');
+        try {
+            $message = $this->findByMessageId($providerMessageId);
+            $message?->move('[Gmail]/Trash');
+        } finally {
+            $this->disconnect();
+        }
     }
 
     public function applyLabel(string $providerMessageId, string $label): void
     {
-        // Gmail labels are implemented as IMAP folders/X-GM-LABELS. webklex/php-imap
-        // doesn't expose X-GM-LABELS natively, so we approximate via a Gmail-style
-        // folder copy, which Gmail surfaces as a label in its own UI.
-        $client = $this->connect();
-        $this->ensureFolderExists($client, $label);
+        // Gmail labels are X-GM-LABELS. We set them directly via a raw STORE
+        // (which also makes EmailActionService::undo()'s applyLabel(id,'INBOX')
+        // correctly restore inbox placement, since INBOX is a Gmail system
+        // label). Falls back to a folder copy if the server rejects it.
+        try {
+            $message = $this->findByMessageId($providerMessageId);
+            if (! $message) {
+                return;
+            }
 
-        $message = $this->findByMessageId($providerMessageId, $client);
-        $message?->copy($label);
+            try {
+                $this->mailbox()->connection()->store(
+                    [$label],
+                    [$message->uid()],
+                    mode: '+',
+                    item: 'X-GM-LABELS',
+                );
+            } catch (\Throwable $e) {
+                Log::warning('X-GM-LABELS store failed, falling back to folder copy', [
+                    'label' => $label,
+                    'error' => $e->getMessage(),
+                ]);
 
-        $client->disconnect();
-    }
-
-    private function ensureFolderExists(\Webklex\PHPIMAP\Client $client, string $folderName): void
-    {
-        if (! $client->getFolder($folderName)) {
-            $client->createFolder($folderName);
+                $this->mailbox()->folders()->firstOrCreate($label);
+                $message->copy($label);
+            }
+        } finally {
+            $this->disconnect();
         }
     }
 
-    private function findByMessageId(string $providerMessageId, ?\Webklex\PHPIMAP\Client $client = null): ?ImapMessage
+    private function findByMessageId(string $providerMessageId): ?Message
     {
-        $ownClient = $client === null;
-        $client ??= $this->connect();
-
-        $message = $client->getFolder('INBOX')
+        return $this->mailbox()->inbox()
             ->messages()
-            ->where('MESSAGE_ID', $providerMessageId)
+            ->messageId($providerMessageId)
             ->get()
             ->first();
-
-        if ($ownClient) {
-            $client->disconnect();
-        }
-
-        return $message;
     }
 
     /**
@@ -249,20 +269,28 @@ class ImapGmailProvider implements MailProviderContract
      */
     public function createDraftReply(string $providerThreadId, string $body): string
     {
-        $client = $this->connect();
+        try {
+            $mailbox = $this->mailbox();
 
-        $raw = "From: {$this->username}\r\n".
-               "Subject: Re: (draft)\r\n".
-               "Content-Type: text/plain; charset=UTF-8\r\n".
-               "References: {$providerThreadId}\r\n".
-               "In-Reply-To: {$providerThreadId}\r\n".
-               "\r\n".
-               $body;
+            $draftsFolder = $mailbox->folders()->find('[Gmail]/Drafts')
+                ?? $mailbox->folders()->find('Drafts');
 
-        $draftsFolder = $client->getFolder('[Gmail]/Drafts') ?? $client->getFolder('Drafts');
-        $draftsFolder->appendMessage($raw, ['\\Draft']);
+            if (! $draftsFolder) {
+                throw new \RuntimeException('Gmail Drafts folder not found.');
+            }
 
-        $client->disconnect();
+            $raw = "From: {$this->username}\r\n".
+                   "Subject: Re: (draft)\r\n".
+                   "Content-Type: text/plain; charset=UTF-8\r\n".
+                   "References: {$providerThreadId}\r\n".
+                   "In-Reply-To: {$providerThreadId}\r\n".
+                   "\r\n".
+                   $body;
+
+            $draftsFolder->messages()->append($raw, ['\Draft']);
+        } finally {
+            $this->disconnect();
+        }
 
         // IMAP APPEND doesn't return a usable id in a portable way across
         // servers; we return a synthetic id for audit logging purposes.

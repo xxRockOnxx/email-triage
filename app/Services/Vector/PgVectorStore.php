@@ -35,10 +35,11 @@ class PgVectorStore implements VectorStoreContract
         $vectorLiteral = $this->toVectorLiteral($embedding);
 
         $exclusionClause = $excludeEmailId ? 'AND ee.email_id != ?' : '';
-        $bindings = [$vectorLiteral, $vectorLiteral];
+        $bindings = [$vectorLiteral];
         if ($excludeEmailId) {
             $bindings[] = $excludeEmailId;
         }
+        $bindings[] = $vectorLiteral;
         $bindings[] = $limit * 3; // over-fetch; filtered down to eligible triage statuses below
 
         $rows = DB::select(

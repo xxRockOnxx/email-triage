@@ -4,6 +4,8 @@ namespace App\Services\Triage;
 
 use App\Contracts\TriageBackendContract;
 use App\DTOs\TriageRequest;
+use App\Enums\SuggestedAction;
+use App\Enums\Urgency;
 
 abstract class AbstractTriageBackend implements TriageBackendContract
 {
@@ -86,6 +88,45 @@ abstract class AbstractTriageBackend implements TriageBackendContract
 
         return "Sender history: {$rep->emailCount} prior emails, most commonly categorized as ".
                "\"{$rep->mostCommonCategory}\", most common action taken: \"{$rep->mostCommonAction}\".\n";
+    }
+
+    /**
+     * JSON Schema constraining the LLM's response. Passed to Ollama's `format`
+     * field for native structured output, so the model cannot emit malformed
+     * JSON, wrong types, or out-of-range enum/numeric values. Enum values are
+     * derived from the PHP enums so the two can never drift.
+     */
+    protected function responseSchema(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => [
+                'matched_category_id' => ['type' => ['integer', 'null']],
+                'proposed_category_name' => ['type' => ['string', 'null']],
+                'proposed_category_reasoning' => ['type' => ['string', 'null']],
+                'summary' => ['type' => 'string'],
+                'urgency' => [
+                    'type' => 'string',
+                    'enum' => array_column(Urgency::cases(), 'value'),
+                ],
+                'confidence' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 100],
+                'suggested_action' => [
+                    'type' => 'string',
+                    'enum' => array_column(SuggestedAction::cases(), 'value'),
+                ],
+                'suggested_reply_draft' => ['type' => ['string', 'null']],
+            ],
+            'required' => [
+                'matched_category_id',
+                'proposed_category_name',
+                'proposed_category_reasoning',
+                'summary',
+                'urgency',
+                'confidence',
+                'suggested_action',
+                'suggested_reply_draft',
+            ],
+        ];
     }
 
     /**

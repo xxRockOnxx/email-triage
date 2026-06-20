@@ -5,6 +5,7 @@ namespace App\Services\Triage;
 use App\DTOs\TriageRequest;
 use App\DTOs\TriageResponse;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class OllamaTriageBackend extends AbstractTriageBackend
@@ -26,7 +27,7 @@ class OllamaTriageBackend extends AbstractTriageBackend
             ->post('/api/chat', [
                 'model' => $this->model,
                 'stream' => false,
-                'format' => 'json',
+                'format' => $this->responseSchema(),
                 'messages' => [
                     ['role' => 'system', 'content' => $this->systemPrompt($request)],
                     ['role' => 'user', 'content' => $this->userPrompt($request)],

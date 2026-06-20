@@ -36,13 +36,15 @@ class SenderStat extends Model
 
     public function mostCommonCategory(): ?string
     {
-        if (empty($this->category_histogram)) {
+        $histogram = $this->category_histogram;
+
+        if (empty($histogram)) {
             return null;
         }
 
-        arsort($this->category_histogram);
+        arsort($histogram);
 
-        return array_key_first($this->category_histogram);
+        return array_key_first($histogram);
     }
 
     public function mostCommonAction(): ?string

@@ -17,7 +17,7 @@ class OllamaEmbeddingBackend implements EmbeddingBackendContract
     public function embed(string $text): array
     {
         $response = Http::baseUrl($this->baseUrl)
-            ->timeout(30)
+            ->timeout(config('embedding.timeout', 30))
             ->post('/api/embeddings', [
                 'model' => $this->model,
                 'prompt' => $text,

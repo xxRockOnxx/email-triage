@@ -13,6 +13,7 @@ use App\Services\Reputation\SenderReputationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\Attributes\Timeout;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,7 @@ use Illuminate\Support\Facades\Log;
  * TriageResult. Dispatches EmbedAndStoreJob last so this email becomes
  * available as a future RAG example.
  */
+#[Timeout(310)]
 class TriageEmailJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;

@@ -4,6 +4,8 @@ return [
     // Which EmbeddingBackendContract implementation to bind: ollama or openai.
     'backend' => env('EMBEDDING_BACKEND', 'ollama'),
 
+    'timeout' => env('EMBEDDING_TIMEOUT', 30),
+
     // Must match the bound backend's actual output dimension AND the
     // email_embeddings pgvector column schema (migration
     // 2024_01_01_000009_create_email_embeddings_table.php). If you change

@@ -16,10 +16,7 @@ abstract class AbstractTriageBackend implements TriageBackendContract
      */
     protected function systemPrompt(TriageRequest $request): string
     {
-        $categoryList = collect($request->availableCategories)
-            ->map(fn ($c) => "- (id={$c->id}) {$c->name}: {$c->description}")
-            ->implode("\n");
-
+        $categorySection = $this->formatCategoryInstructions($request);
         $ragSection = $this->formatRagExamples($request);
         $reputationSection = $this->formatReputation($request);
 
@@ -29,15 +26,7 @@ abstract class AbstractTriageBackend implements TriageBackendContract
             [PERSON_1]). Never attempt to guess or reconstruct the real identity behind a
             placeholder — treat placeholders as opaque tokens.
 
-            Classify the email into ONE of these existing categories if it clearly fits:
-            {$categoryList}
-
-            If none of the existing categories fit well, propose a new category by filling
-            "category_proposal" with BOTH a concise "category" name AND a one-sentence
-            "reasoning" explaining why. If an existing category matches (or you matched one
-            above), set "category_proposal" to null instead. Prefer reusing an existing
-            category over creating a near-duplicate (e.g. do not propose "Invoices" if
-            "Receipt/Invoice" already exists).
+            {$categorySection}
 
             {$reputationSection}
             {$ragSection}
@@ -60,6 +49,40 @@ abstract class AbstractTriageBackend implements TriageBackendContract
         return "Sender domain: {$request->senderDomain}\n\n".
                "Subject: {$request->anonymizedSubject}\n\n".
                "Body:\n{$request->anonymizedBody}";
+    }
+
+    /**
+     * The category-matching instructions, branched on whether any active
+     * categories exist yet. With none available the model cannot match, so it is
+     * told explicitly that it MUST propose a new one (bootstrapping the taxonomy
+     * from the first email); otherwise the usual match-or-propose guidance with
+     * the full list is emitted.
+     */
+    private function formatCategoryInstructions(TriageRequest $request): string
+    {
+        if (empty($request->availableCategories)) {
+            return 'There are no existing categories set up yet, so there is nothing '
+                .'to match against. You MUST propose a new category: set '
+                .'"matched_category_id" to null and fill "category_proposal" with BOTH '
+                .'a concise "category" name AND a one-sentence "reasoning" explaining '
+                .'why this category fits the email.';
+        }
+
+        $categoryList = collect($request->availableCategories)
+            ->map(fn ($c) => "- (id={$c->id}) {$c->name}: {$c->description}")
+            ->implode("\n");
+
+        return <<<PROMPT
+            Classify the email into ONE of these existing categories if it clearly fits:
+            {$categoryList}
+
+            If none of the existing categories fit well, propose a new category by filling
+            "category_proposal" with BOTH a concise "category" name AND a one-sentence
+            "reasoning" explaining why. If an existing category matches (or you matched one
+            above), set "category_proposal" to null instead. Prefer reusing an existing
+            category over creating a near-duplicate (e.g. do not propose "Invoices" if
+            "Receipt/Invoice" already exists).
+            PROMPT;
     }
 
     private function formatRagExamples(TriageRequest $request): string

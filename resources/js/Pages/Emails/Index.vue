@@ -6,6 +6,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import UrgencyBadge from '@/Components/UrgencyBadge.vue';
 import CategoryPill from '@/Components/CategoryPill.vue';
 import ConfidenceMeter from '@/Components/ConfidenceMeter.vue';
+import ActionButton from '@/Components/ActionButton.vue';
 import Pagination from '@/Components/Pagination.vue';
 
 defineOptions({ layout: AppLayout });
@@ -39,6 +40,30 @@ watch(searchTerm, (value) => debouncedSearch(value));
 
 function formatDate(iso) {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+// Map a triage result's `suggested_action` to an inline list-row action.
+// `reply` can't execute inline (the draft endpoint needs a body), so it
+// routes to the detail page where the draft can be reviewed first.
+const SUGGESTED_ACTION = {
+  archive: { label: 'Archive', confirm: 'Archive this email?' },
+  delete: { label: 'Delete', variant: 'danger', confirm: 'Move this email to trash?' },
+  flag: { label: 'Flag', confirm: 'Flag this email?' },
+  reply: { label: 'Reply', navigate: true },
+};
+
+function actionFor(email) {
+  const type = email.latest_triage_result?.suggested_action;
+  if (!type || type === 'none') return null;
+  return SUGGESTED_ACTION[type] ?? null;
+}
+
+function runAction(email, type) {
+  if (type === 'reply') {
+    router.get(route('emails.show', email.id));
+    return;
+  }
+  router.post(route(`emails.${type}`, email.id), {}, { preserveScroll: true });
 }
 </script>
 
@@ -82,6 +107,7 @@ function formatDate(iso) {
           <span class="w-20 text-center font-medium">Urgency</span>
           <span class="w-20 text-right font-medium">Received</span>
         </div>
+        <span class="w-24 text-right font-medium">Action</span>
       </div>
 
       <div v-if="emails.data.length === 0" class="px-5 py-14 text-center text-sm text-ink-faint">
@@ -89,10 +115,14 @@ function formatDate(iso) {
       </div>
 
       <ul v-else class="divide-y divide-border">
-        <li v-for="email in emails.data" :key="email.id">
+        <li
+          v-for="email in emails.data"
+          :key="email.id"
+          class="flex items-stretch gap-4 px-5 py-3.5 hover:bg-surface-sunken transition-colors"
+        >
           <Link
             :href="route('emails.show', email.id)"
-            class="flex items-stretch gap-4 px-5 py-3.5 hover:bg-surface-sunken transition-colors"
+            class="flex items-stretch gap-4 flex-1 min-w-0"
           >
             <div
               class="urgency-spine"
@@ -131,6 +161,17 @@ function formatDate(iso) {
               </span>
             </div>
           </Link>
+
+          <div class="flex items-center justify-end shrink-0 w-24">
+            <ActionButton
+              v-if="actionFor(email)"
+              class="w-24"
+              :label="actionFor(email).label"
+              :variant="actionFor(email).variant || 'default'"
+              :confirm-message="actionFor(email).confirm"
+              @click="runAction(email, email.latest_triage_result.suggested_action)"
+            />
+          </div>
         </li>
       </ul>
     </div>

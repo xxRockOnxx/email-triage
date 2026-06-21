@@ -114,7 +114,7 @@ function formatDate(iso) {
                   pending
                 />
               </div>
-              <p class="text-sm text-ink-soft truncate">
+              <p class="text-sm text-ink-soft">
                 {{ email.latest_triage_result?.summary || 'Awaiting triage…' }}
               </p>
             </div>

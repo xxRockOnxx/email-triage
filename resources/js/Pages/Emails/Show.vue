@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onBeforeUnmount } from 'vue';
 import { router, useForm, Link } from '@inertiajs/vue3';
 import DOMPurify from 'dompurify';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -34,6 +34,33 @@ const sanitizedBody = computed(() => {
         .replace(/>/g, '&gt;');
     return `<pre style="white-space:pre-wrap;margin:0;font-family:inherit;">${escaped}</pre>`;
 });
+
+// Auto-size the rendered message iframe to its content. The sandbox keeps
+// `allow-same-origin` (no scripts), so the parent can read the iframe's
+// contentDocument to measure height; we re-measure on load and whenever
+// late-loading images/fonts change the content height.
+const bodyFrame = ref(null);
+let bodyObserver = null;
+
+function applyBodyHeight(doc) {
+  if (!doc || !doc.documentElement) return;
+  const height = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0);
+  if (bodyFrame.value) bodyFrame.value.style.height = `${height}px`;
+}
+
+function autoresizeBody() {
+  const frame = bodyFrame.value;
+  if (!frame) return;
+  const doc = frame.contentDocument;
+  if (!doc) return;
+  applyBodyHeight(doc);
+
+  if (bodyObserver) bodyObserver.disconnect();
+  bodyObserver = new ResizeObserver(() => applyBodyHeight(frame.contentDocument));
+  bodyObserver.observe(doc.documentElement);
+}
+
+onBeforeUnmount(() => bodyObserver?.disconnect());
 
 const showCorrectionPanel = ref(false);
 const showReplyDraft = ref(false);
@@ -221,9 +248,11 @@ const STATUS_LABEL = {
     <div class="bg-surface border border-border rounded-lg p-5">
       <h2 class="text-xs font-medium text-ink-soft uppercase tracking-wide mb-3">Message</h2>
        <iframe
+            ref="bodyFrame"
             class="w-full"
             :srcdoc="sanitizedBody"
             sandbox="allow-same-origin"
+            @load="autoresizeBody"
        />
     </div>
 

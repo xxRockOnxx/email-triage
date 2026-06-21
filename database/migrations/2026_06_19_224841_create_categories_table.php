@@ -13,13 +13,9 @@ return new class extends Migration
             $table->string('name')->unique();
             $table->text('description')->nullable();
 
-            // 'gmail'  => seeded from Gmail's own category labels (CATEGORY_PERSONAL, etc.)
             // 'llm'    => proposed by the triage LLM, pending or accepted
             // 'user'   => manually created by the user
-            $table->enum('source', ['gmail', 'llm', 'user'])->default('user');
-
-            // Gmail's raw label id this maps to, if source = gmail (e.g. CATEGORY_PROMOTIONS)
-            $table->string('gmail_label_id')->nullable();
+            $table->enum('source', ['llm', 'user'])->default('user');
 
             // LLM-proposed categories start pending; only used in prompts/matching once accepted.
             $table->enum('status', ['active', 'pending_review', 'rejected', 'merged'])->default('active');

@@ -43,7 +43,7 @@ function destroy(category) {
   router.delete(route('categories.destroy', category.id));
 }
 
-const sourceLabel = { gmail: 'Gmail', llm: 'LLM', user: 'You' };
+const sourceLabel = { llm: 'LLM', user: 'You' };
 </script>
 
 <template>

@@ -16,7 +16,6 @@ class Category extends Model
         'name',
         'description',
         'source',
-        'gmail_label_id',
         'status',
         'merged_into_id',
         'parent_category_id',

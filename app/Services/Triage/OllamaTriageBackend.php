@@ -28,6 +28,9 @@ class OllamaTriageBackend extends AbstractTriageBackend
                 'model' => $this->model,
                 'stream' => false,
                 'format' => $this->responseSchema(),
+                'options' => [
+                    'temperature' => config('triage.temperature', 0.2),
+                ],
                 'messages' => [
                     ['role' => 'system', 'content' => $this->systemPrompt($request)],
                     ['role' => 'user', 'content' => $this->userPrompt($request)],

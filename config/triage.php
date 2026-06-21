@@ -7,6 +7,11 @@ return [
 
     'timeout' => env('TRIAGE_TIMEOUT', 60),
 
+    // Sampling temperature (0-2). Low values keep structured-output triage
+    // deterministic. Read directly by backends, with their own fallback, so a
+    // missing config value never leaves it unset.
+    'temperature' => env('TRIAGE_TEMPERATURE', 0.2),
+
     // Global fallback confidence threshold (0-100) for auto-filing when a
     // category has no per-category override (Category::confidence_threshold).
     'default_confidence_threshold' => env('TRIAGE_DEFAULT_CONFIDENCE_THRESHOLD', 75),

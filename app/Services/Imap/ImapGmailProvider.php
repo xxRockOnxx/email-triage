@@ -157,8 +157,15 @@ class ImapGmailProvider implements MailProviderContract
             }
         }
 
+        $messageId = $imapMessage->messageId();
+        if (empty($messageId)) {
+            throw new \UnexpectedValueException(
+                'IMAP message has no Message-ID header; cannot assign a stable provider id, skipping.'
+            );
+        }
+
         return new InboundEmail(
-            providerMessageId: (string) ($imapMessage->messageId() ?: $imapMessage->uid()),
+            providerMessageId: $messageId,
             providerThreadId: $this->resolveThreadId($imapMessage),
             senderEmail: $senderEmail,
             senderName: $senderName,

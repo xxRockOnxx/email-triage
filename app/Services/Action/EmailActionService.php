@@ -29,7 +29,11 @@ class EmailActionService
     {
         $this->provider->deleteMessage($email->gmail_id);
 
-        return $this->log($email, $triage, 'delete', $initiatedBy);
+        $log = $this->log($email, $triage, 'delete', $initiatedBy);
+
+        $email->delete();
+
+        return $log;
     }
 
     public function flag(Email $email, ?TriageResult $triage, string $initiatedBy = 'user'): ActionLog
@@ -63,8 +67,13 @@ class EmailActionService
             throw new RuntimeException("Action {$actionLog->id} of type {$actionLog->action_type} is not undoable.");
         }
 
+        $email = $actionLog->action_type === 'delete'
+            ? Email::withTrashed()->find($actionLog->email_id)
+            : $actionLog->email;
+
         match ($actionLog->action_type) {
             'archive' => $this->provider->applyLabel($actionLog->email->gmail_id, 'INBOX'), // re-add to inbox
+            'delete' => $this->restore($email), // un-delete (undo soft delete + restore in provider)
             'label_applied' => null, // removing labels via undo intentionally left manual — avoid surprising removals
             default => throw new RuntimeException("Undo not implemented for {$actionLog->action_type}"),
         };
@@ -89,5 +98,11 @@ class EmailActionService
             'gmail_action_id' => $gmailActionId,
             'executed_at' => now(),
         ]));
+    }
+
+    private function restore(Email $email): void
+    {
+        $this->provider->restoreMessage($email->gmail_id);
+        $email->restore();
     }
 }

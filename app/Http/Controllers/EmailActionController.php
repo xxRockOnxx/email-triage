@@ -23,7 +23,10 @@ class EmailActionController extends Controller
     {
         $this->actionService->delete($email, $email->latestTriageResult);
 
-        return back()->with('success', 'Email moved to trash.');
+        // Not back() — if this was triggered from the email's own show page,
+        // that route will 404 now that the email is soft-deleted (implicit
+        // route-model binding excludes trashed models by default).
+        return redirect()->route('emails.index')->with('success', 'Email moved to trash.');
     }
 
     public function flag(Email $email): RedirectResponse

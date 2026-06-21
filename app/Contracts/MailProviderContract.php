@@ -23,6 +23,8 @@ interface MailProviderContract
 
     public function deleteMessage(string $providerMessageId): void;
 
+    public function restoreMessage(string $providerMessageId): void;
+
     public function applyLabel(string $providerMessageId, string $label): void;
 
     public function createDraftReply(string $providerThreadId, string $body): string;

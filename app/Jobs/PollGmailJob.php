@@ -87,7 +87,7 @@ class PollGmailJob implements ShouldQueue, ShouldBeUnique
     private function persistRawEmail(\App\DTOs\InboundEmail $inbound): Email
     {
         return DB::transaction(function () use ($inbound) {
-            return Email::firstOrCreate(
+            return Email::withTrashed()->firstOrCreate(
                 ['gmail_id' => $inbound->providerMessageId],
                 [
                     'thread_id' => $inbound->providerThreadId,

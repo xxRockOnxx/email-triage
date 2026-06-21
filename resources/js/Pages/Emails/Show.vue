@@ -104,6 +104,10 @@ function submitReplyDraft() {
   });
 }
 
+function undo(logId) {
+    router.post(route('action-logs.undo', logId))
+}
+
 function formatDateTime(iso) {
   return new Date(iso).toLocaleString(undefined, {
     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
@@ -266,15 +270,53 @@ const STATUS_LABEL = {
     <!-- Action history -->
     <div v-if="email.actions_log?.length" class="mt-6">
       <h2 class="text-xs font-medium text-ink-soft uppercase tracking-wide mb-2">Activity</h2>
-      <ul class="space-y-1.5">
+      <ul class="relative border-l border-ink-faint/20 ml-2 pl-4 space-y-4">
         <li
           v-for="log in email.actions_log"
           :key="log.id"
-          class="text-xs text-ink-faint font-mono-tabular flex items-center gap-2"
+          class="relative flex items-center justify-between gap-4 text-xs group"
         >
-          <span>{{ formatDateTime(log.executed_at) }}</span>
-          <span class="text-ink-soft">{{ log.action_type }}</span>
-          <span v-if="log.initiated_by === 'auto'" class="text-accent">(auto)</span>
+          <div
+            class="absolute -left-[21px] w-2.5 h-2.5 rounded-full border border-background bg-ink-faint"
+            :class="{ 'bg-accent': log.initiated_by === 'auto', 'line-through opacity-50': log.undone_at }"
+          />
+
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="font-mono text-ink-faint whitespace-nowrap">
+              {{ formatDateTime(log.executed_at) }}
+            </span>
+
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span
+                class="font-medium text-ink-base truncate"
+                :class="{ 'line-through text-ink-faint': log.undone_at }"
+              >
+                {{ log.action_type }}
+              </span>
+
+              <span
+                v-if="log.initiated_by === 'auto'"
+                class="px-1.5 py-0.5 rounded text-[10px] bg-accent/10 text-accent font-medium uppercase tracking-wider"
+              >
+                Auto
+              </span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 shrink-0 text-right">
+            <div v-if="log.action_type === 'delete' && !log.undone_at">
+              <ActionButton
+                label="Undo"
+                class="hover:text-danger transition-colors"
+                @click="undo(log.id)"
+              />
+            </div>
+
+            <div v-if="log.undone_at" class="text-ink-faint flex flex-col items-end">
+              <span class="text-[10px] uppercase tracking-wide text-ink-soft/70">Undone</span>
+              <span class="font-mono text-[11px]">{{ formatDateTime(log.undone_at) }}</span>
+            </div>
+          </div>
         </li>
       </ul>
     </div>

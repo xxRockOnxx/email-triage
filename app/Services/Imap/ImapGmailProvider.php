@@ -264,7 +264,39 @@ class ImapGmailProvider implements MailProviderContract
     {
         try {
             $message = $this->findByMessageId($providerMessageId);
-            $message?->move('[Gmail]/Trash');
+            if (! $message) {
+                Log::warning('Cannot delete message: not found', [
+                    'message_id' => $providerMessageId,
+                ]);
+                return;
+            }
+            $message->move('[Gmail]/Trash');
+        } catch (\Throwable $e) {
+            Log::error('Failed to delete message', [
+                'message_id' => $providerMessageId,
+                'error' => $e->getMessage(),
+            ]);
+        } finally {
+            $this->disconnect();
+        }
+    }
+
+    public function restoreMessage(string $providerMessageId): void
+    {
+        try {
+            $message = $this->findDeletedByMessageId($providerMessageId);
+            if (! $message) {
+                Log::warning('Cannot restore message: not found', [
+                    'message_id' => $providerMessageId,
+                ]);
+                return;
+            }
+            $message->move('INBOX');
+        } catch (\Throwable $e) {
+            Log::error('Failed to restore message', [
+                'message_id' => $providerMessageId,
+                'error' => $e->getMessage(),
+            ]);
         } finally {
             $this->disconnect();
         }
@@ -309,6 +341,16 @@ class ImapGmailProvider implements MailProviderContract
             ->messages()
             ->messageId($providerMessageId)
             ->get()
+            ->first();
+    }
+
+    private function findDeletedByMessageId(string $providerMessageId): ?Message
+    {
+        return $this->mailbox()
+            ->folders()
+            ->findOrFail('[Gmail]/Trash')
+            ->messages()
+            ->messageId($providerMessageId)
             ->first();
     }
 

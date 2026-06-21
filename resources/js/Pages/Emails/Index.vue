@@ -78,9 +78,9 @@ function formatDate(iso) {
         <div class="urgency-spine" aria-hidden="true" />
         <div class="flex-1 font-medium">Sender</div>
         <div class="flex items-center gap-5 shrink-0">
-          <span class="w-24 text-center font-medium">Confidence</span>
-          <span class="font-medium">Urgency</span>
-          <span class="w-12 text-right font-medium">Received</span>
+          <span class="w-20 text-right font-medium">Confidence</span>
+          <span class="w-20 text-center font-medium">Urgency</span>
+          <span class="w-20 text-right font-medium">Received</span>
         </div>
       </div>
 
@@ -120,9 +120,13 @@ function formatDate(iso) {
             </div>
 
             <div class="flex items-center gap-5 shrink-0">
-              <ConfidenceMeter v-if="email.latest_triage_result" :confidence="email.latest_triage_result.confidence" />
-              <UrgencyBadge :urgency="email.latest_triage_result?.urgency ?? 'low'" />
-              <span class="text-xs text-ink-faint font-mono-tabular w-12 text-right">
+              <div class="w-20 flex justify-end">
+                <ConfidenceMeter v-if="email.latest_triage_result" :confidence="email.latest_triage_result.confidence" />
+              </div>
+              <div class="w-20 flex justify-center">
+                <UrgencyBadge :urgency="email.latest_triage_result?.urgency ?? 'low'" />
+              </div>
+              <span class="text-xs text-ink-faint font-mono-tabular w-20 text-right">
                 {{ formatDate(email.received_at) }}
               </span>
             </div>

@@ -164,12 +164,16 @@ const STATUS_LABEL = {
       </div>
 
       <!-- Review actions -->
-      <div v-if="triage.status === 'needs_review'" class="flex items-center gap-2 pt-3 border-t border-border">
-        <ActionButton label="Approve as-is" @click="approve" />
-        <ActionButton label="Correct…" @click="showCorrectionPanel = !showCorrectionPanel" />
-      </div>
-      <div v-else class="pt-3 border-t border-border">
-        <ActionButton label="Correct…" @click="showCorrectionPanel = !showCorrectionPanel" />
+      <div class="pt-3 border-t border-border flex items-center gap-2">
+        <ActionButton
+          v-if="triage.status === 'needs_review'"
+          label="Approve as-is"
+          @click="approve"
+        />
+        <ActionButton
+          label="Correct…"
+          @click="showCorrectionPanel = !showCorrectionPanel"
+        />
       </div>
 
       <!-- Correction panel -->

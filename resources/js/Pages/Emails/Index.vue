@@ -72,12 +72,23 @@ function runAction(email, type) {
     <div class="flex items-center justify-between mb-5">
       <h1 class="text-xl font-semibold tracking-tight">Triage queue</h1>
 
-      <input
-        v-model="searchTerm"
-        type="search"
-        placeholder="Search anonymized content…"
-        class="w-64 px-3 py-1.5 text-sm border border-border rounded-md bg-surface focus:border-accent outline-none"
-      />
+      <div class="flex items-center gap-2">
+        <select
+          :value="filters.sort || 'urgency'"
+          class="px-2.5 py-1.5 text-sm border border-border rounded-md bg-surface"
+          @change="applyFilter('sort', $event.target.value === 'urgency' ? undefined : $event.target.value)"
+        >
+          <option value="urgency">Sort: most urgent first</option>
+          <option value="recent">Sort: most recent first</option>
+        </select>
+
+        <input
+          v-model="searchTerm"
+          type="search"
+          placeholder="Search anonymized content…"
+          class="w-64 px-3 py-1.5 text-sm border border-border rounded-md bg-surface focus:border-accent outline-none"
+        />
+      </div>
     </div>
 
     <div class="flex items-center gap-1 mb-4 border-b border-border">

@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Urgency;
 use App\Models\Category;
 use App\Models\Email;
 use App\Services\Anonymization\PresidioAnonymizer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,7 +21,14 @@ class EmailController extends Controller
     {
         $query = Email::query()
             ->with(['latestTriageResult.category'])
-            ->orderByDesc('received_at');
+            ->leftJoinSub(
+                $this->latestTriageResultSubquery(),
+                'latest_triage',
+                'latest_triage.email_id',
+                '=',
+                'emails.id'
+            )
+            ->select('emails.*');
 
         if ($status = $request->query('status')) {
             $query->whereHas('latestTriageResult', fn ($q) => $q->where('status', $status));
@@ -40,12 +49,67 @@ class EmailController extends Controller
             $query->whereRaw('search_vector @@ plainto_tsquery(\'english\', ?)', [$search]);
         }
 
+        $this->applySorting($query, $request);
+
         $emails = $query->paginate(25)->withQueryString();
 
         return Inertia::render('Emails/Index', [
             'emails' => $emails,
-            'filters' => $request->only(['status', 'category_id', 'urgency', 'q']),
+            'filters' => (object) $request->only(['status', 'category_id', 'urgency', 'q', 'sort']),
         ]);
+    }
+
+    /**
+     * Sorts by both urgency severity and received_at. Default behavior
+     * (no ?sort param) is most-urgent-first, then most-recent-first within
+     * the same urgency — this is the order a triage queue is actually meant
+     * to be worked in. ?sort=recent flips the primary key to received_at,
+     * with urgency as the tiebreaker, for a chronological inbox view.
+     *
+     * urgency is a string enum (low/medium/high/critical) whose alphabetical
+     * order doesn't match severity order, so it's mapped via CASE to the
+     * same weight scale as Urgency::weight() before sorting.
+     */
+    private function applySorting($query, Request $request): void
+    {
+        $urgencyWeightCase = '
+            CASE latest_triage.urgency
+                WHEN \''.Urgency::Critical->value.'\' THEN 4
+                WHEN \''.Urgency::High->value.'\' THEN 3
+                WHEN \''.Urgency::Medium->value.'\' THEN 2
+                WHEN \''.Urgency::Low->value.'\' THEN 1
+                ELSE 0
+            END
+        ';
+
+        if ($request->query('sort') === 'recent') {
+            $query->orderByDesc('emails.received_at')
+                ->orderByRaw("{$urgencyWeightCase} DESC");
+        } else {
+            $query->orderByRaw("{$urgencyWeightCase} DESC")
+                ->orderByDesc('emails.received_at');
+        }
+    }
+
+    /**
+     * Mirrors Email::latestTriageResult()'s ->latestOfMany() semantics
+     * (latest = highest id per email_id) as a joinable subquery, since
+     * Eloquent's hasOne/latestOfMany can't be used directly inside an
+     * ORDER BY on the parent query. Grouping by email_id alone (not
+     * urgency) is what guarantees exactly one row per email — the single
+     * most-recent triage_result, whatever its urgency happens to be.
+     */
+    private function latestTriageResultSubquery()
+    {
+        $latestIds = DB::table('triage_results')
+            ->select('email_id', DB::raw('MAX(id) as latest_id'))
+            ->groupBy('email_id');
+
+        return DB::table('triage_results')
+            ->joinSub($latestIds, 'latest_ids', function ($join) {
+                $join->on('triage_results.id', '=', 'latest_ids.latest_id');
+            })
+            ->select('triage_results.email_id', 'triage_results.urgency');
     }
 
     public function show(Email $email, PresidioAnonymizer $anonymizer): Response

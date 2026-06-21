@@ -16,14 +16,11 @@ class Correction extends Model
         'old_suggested_action',
         'new_suggested_action',
         'note',
-        'corrected_at',
     ];
 
     protected function casts(): array
     {
-        return [
-            'corrected_at' => 'datetime',
-        ];
+        return [];
     }
 
     public function triageResult(): BelongsTo

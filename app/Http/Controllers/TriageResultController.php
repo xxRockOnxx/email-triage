@@ -24,10 +24,10 @@ class TriageResultController extends Controller
     }
 
     /**
-     * User corrects a triage result. Writes a Correction record (the core
-     * training signal), updates the TriageResult in place, re-embeds the
-     * email so it becomes a high-trust RAG example, and folds the correction
-     * into sender reputation.
+     * User corrects a triage result. Upserts the single Correction record for
+     * this triage result (the core training signal) — re-corrections refresh it
+     * in place rather than appending. Also updates the TriageResult, re-embeds the
+     * email as a high-trust RAG example, and folds the correction into reputation.
      */
     public function correct(Request $request, TriageResult $triageResult, SenderReputationService $reputationService): RedirectResponse
     {
@@ -38,17 +38,23 @@ class TriageResultController extends Controller
             'note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        Correction::create([
-            'triage_result_id' => $triageResult->id,
-            'old_category_id' => $triageResult->category_id,
+        $correction = Correction::firstOrNew(['triage_result_id' => $triageResult->id]);
+
+        // Anchor old_* to the model's ORIGINAL prediction — only on the first
+        // correction — so a later re-correction (misclick, added note) doesn't
+        // overwrite the "what the model got wrong" snapshot with a prior value.
+        if (! $correction->exists) {
+            $correction->old_category_id = $triageResult->category_id;
+            $correction->old_urgency = $triageResult->urgency->value;
+            $correction->old_suggested_action = $triageResult->suggested_action->value;
+        }
+
+        $correction->fill([
             'new_category_id' => $validated['category_id'] ?? $triageResult->category_id,
-            'old_urgency' => $triageResult->urgency->value,
             'new_urgency' => $validated['urgency'] ?? $triageResult->urgency->value,
-            'old_suggested_action' => $triageResult->suggested_action->value,
             'new_suggested_action' => $validated['suggested_action'] ?? $triageResult->suggested_action->value,
             'note' => $validated['note'] ?? null,
-            'corrected_at' => now(),
-        ]);
+        ])->save();
 
         $triageResult->update(array_filter([
             'category_id' => $validated['category_id'] ?? null,

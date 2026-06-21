@@ -3,7 +3,7 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 
-:root {
+@theme {
   /* Surface */
   --color-bg: #faf9f6;
   --color-surface: #ffffff;

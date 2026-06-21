@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\Email;
 use App\Services\Anonymization\PresidioAnonymizer;
 use Illuminate\Http\Request;
@@ -51,6 +52,9 @@ class EmailController extends Controller
     {
         $email->load(['latestTriageResult.category', 'piiMappings', 'actionsLog']);
 
+        // Active categories for the correction panel's category dropdown.
+        $categories = Category::active()->orderBy('name')->get(['id', 'name']);
+
         // De-anonymize the LLM's summary for display so the user sees real
         // names/details, even though the LLM itself never saw them.
         $summary = $email->latestTriageResult?->summary;
@@ -69,6 +73,7 @@ class EmailController extends Controller
         return Inertia::render('Emails/Show', [
             'email' => $email,
             'deanonymized_summary' => $deanonymizedSummary,
+            'categories' => $categories,
         ]);
     }
 }

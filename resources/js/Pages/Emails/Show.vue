@@ -13,6 +13,7 @@ defineOptions({ layout: AppLayout });
 const props = defineProps({
   email: { type: Object, required: true },
   deanonymized_summary: { type: String, default: null },
+  categories: { type: Array, default: () => [] },
 });
 
 const triage = computed(() => props.email.latest_triage_result);
@@ -174,6 +175,19 @@ const STATUS_LABEL = {
 
       <!-- Correction panel -->
       <div v-if="showCorrectionPanel" class="mt-4 pt-4 border-t border-border space-y-3">
+        <label class="block">
+          <span class="text-xs text-ink-soft mb-1 block">Category</span>
+          <select
+            v-model="correctionForm.category_id"
+            class="w-full px-2.5 py-1.5 text-sm border border-border rounded-md bg-surface"
+          >
+            <option :value="null">— No category —</option>
+            <option v-for="category in categories" :key="category.id" :value="category.id">
+              {{ category.name }}
+            </option>
+          </select>
+        </label>
+
         <div class="grid grid-cols-2 gap-3">
           <label class="block">
             <span class="text-xs text-ink-soft mb-1 block">Urgency</span>

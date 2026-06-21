@@ -96,6 +96,7 @@ class PollGmailJob implements ShouldQueue, ShouldBeUnique
                     'sender_domain' => $inbound->senderDomain(),
                     'subject_enc' => $inbound->subject,
                     'body_enc' => $inbound->bodyText,
+                    'body_html_enc' => $inbound->bodyHtml,
                     'gmail_labels' => $inbound->labels,
                     'gmail_headers' => $inbound->headers,
                     'received_at' => $inbound->receivedAt,

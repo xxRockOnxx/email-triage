@@ -16,6 +16,7 @@ class InboundEmail
         public readonly ?string $senderName,
         public readonly string $subject,
         public readonly string $bodyText,
+        public readonly ?string $bodyHtml = null,
         public readonly array $labels,
         public readonly array $headers,
         public readonly \DateTimeImmutable $receivedAt,

@@ -19,6 +19,7 @@ class Email extends Model
         'sender_domain',
         'subject_enc',
         'body_enc',
+        'body_html_enc',
         'anonymized_subject',
         'anonymized_body',
         'gmail_labels',
@@ -36,6 +37,7 @@ class Email extends Model
             // by Eloquent, but never leaves PHP-land unencrypted on disk.
             'subject_enc' => 'encrypted',
             'body_enc' => 'encrypted',
+            'body_html_enc' => 'encrypted',
             'gmail_labels' => 'array',
             'gmail_headers' => 'array',
             'is_anonymized' => 'boolean',

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { router, useForm, Link } from '@inertiajs/vue3';
+import DOMPurify from 'dompurify';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import UrgencyBadge from '@/Components/UrgencyBadge.vue';
 import CategoryPill from '@/Components/CategoryPill.vue';
@@ -15,6 +16,24 @@ const props = defineProps({
 });
 
 const triage = computed(() => props.email.latest_triage_result);
+
+const sanitizedBody = computed(() => {
+    // Prefer the HTML body for rich rendering; fall back to the plain-text
+    // body for text-only emails and pre-existing rows without body_html_enc.
+    if (props.email.body_html_enc) {
+        return DOMPurify.sanitize(props.email.body_html_enc, {
+            FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'base'],
+            FORBID_ATTR: ['onerror', 'onload', 'onclick'], // belt-and-suspenders; DOMPurify strips these by default anyway
+            ADD_ATTR: ['target'], // so links can open in a new tab
+        });
+    }
+    // Plain-text fallback: escape so <, >, & render literally (never as markup).
+    const escaped = (props.email.body_enc ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    return `<pre style="white-space:pre-wrap;margin:0;font-family:inherit;">${escaped}</pre>`;
+});
 
 const showCorrectionPanel = ref(false);
 const showReplyDraft = ref(false);
@@ -201,10 +220,11 @@ const STATUS_LABEL = {
     <!-- Body -->
     <div class="bg-surface border border-border rounded-lg p-5">
       <h2 class="text-xs font-medium text-ink-soft uppercase tracking-wide mb-3">Message</h2>
-      <!-- body_enc is encrypted at rest in Postgres, but Eloquent's `encrypted`
-           cast transparently decrypts it on the way out — this is the real
-           plaintext body, safe to render here since this page is local-only. -->
-      <p class="text-sm text-ink whitespace-pre-wrap leading-relaxed">{{ email.body_enc }}</p>
+       <iframe
+            class="w-full"
+            :srcdoc="sanitizedBody"
+            sandbox="allow-same-origin"
+       />
     </div>
 
     <!-- Action history -->

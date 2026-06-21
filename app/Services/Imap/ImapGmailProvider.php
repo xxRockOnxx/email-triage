@@ -7,6 +7,7 @@ use App\DTOs\InboundEmail;
 use DirectoryTree\ImapEngine\Mailbox;
 use DirectoryTree\ImapEngine\Message;
 use Illuminate\Support\Facades\Log;
+use League\HTMLToMarkdown\HtmlConverter;
 
 /**
  * Gmail access via IMAP (fetch/archive/delete/label) + SMTP (drafts), using
@@ -135,8 +136,18 @@ class ImapGmailProvider implements MailProviderContract
         $senderEmail = $from?->email() ?? 'unknown@unknown';
         $senderName = $from?->name() ?: null;
 
-        $bodyText = $imapMessage->text() ?: strip_tags($imapMessage->html() ?? '');
-        $bodyText = $this->stripQuotedReplies((string) $bodyText);
+        // Keep two representations: a plain-text/markdown body for the LLM
+        // (anonymization, embeddings, search) and the raw HTML for rich
+        // rendering in the frontend (DOMPurify sanitizes it client-side).
+        $html = $imapMessage->html() ?: null;
+
+        $plain = $imapMessage->text();
+        if ($plain === '' && $html !== null) {
+            // HTML-only mail (common for marketing/transactional): convert to
+            // compact markdown rather than strip_tags, which runs words together.
+            $plain = $this->htmlToMarkdown($html);
+        }
+        $bodyText = $this->normalizeWhitespace($this->stripQuotedReplies((string) $plain));
 
         $headers = [];
         foreach (['list-unsubscribe', 'reply-to', 'in-reply-to', 'references'] as $headerName) {
@@ -153,6 +164,7 @@ class ImapGmailProvider implements MailProviderContract
             senderName: $senderName,
             subject: $imapMessage->subject() ?: '(no subject)',
             bodyText: $bodyText,
+            bodyHtml: $html,
             labels: $this->mapGmailImapFlagsToLabels($imapMessage),
             headers: $headers,
             receivedAt: $imapMessage->date()?->toDateTimeImmutable() ?? new \DateTimeImmutable('now'),
@@ -204,6 +216,36 @@ class ImapGmailProvider implements MailProviderContract
         }
 
         return trim(implode("\n", array_slice($lines, 0, $cutoff)));
+    }
+
+    /**
+     * Convert an HTML string to compact markdown for the LLM path. Strips
+     * <style>/<script> first since some malformed HTML confuses converters
+     * into leaving CSS/JS behind. `strip_tags` drops tags with no markdown
+     * equivalent (e.g. <div>) rather than leaving them inline.
+     */
+    private function htmlToMarkdown(string $html): string
+    {
+        $html = preg_replace('#<(style|script)\b[^>]*>.*?</\1>#is', '', $html);
+
+        return (new HtmlConverter([
+            'strip_tags' => true,
+            'hard_break' => false,
+        ]))->convert($html);
+    }
+
+    /**
+     * Collapse whitespace bloat that wastes tokens: repeated blank lines,
+     * trailing spaces, leftover HTML entities, double-spacing.
+     */
+    private function normalizeWhitespace(string $text): string
+    {
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/[ \t]+$/m', '', $text);   // trailing spaces per line
+        $text = preg_replace("/\n{3,}/", "\n\n", $text); // 3+ newlines -> paragraph break
+        $text = preg_replace('/[ \t]{2,}/', ' ', $text); // collapse runs of spaces
+
+        return trim($text);
     }
 
     public function archiveMessage(string $providerMessageId): void

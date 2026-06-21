@@ -37,29 +37,10 @@ class TriageResultController extends Controller
             'note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $correction = Correction::firstOrNew(['triage_result_id' => $triageResult->id]);
-
-        // Anchor old_* to the model's ORIGINAL prediction — only on the first
-        // correction — so a later re-correction (misclick, added note) doesn't
-        // overwrite the "what the model got wrong" snapshot with a prior value.
-        if (! $correction->exists) {
-            $correction->old_category_id = $triageResult->category_id;
-            $correction->old_urgency = $triageResult->urgency->value;
-            $correction->old_suggested_action = $triageResult->suggested_action->value;
-        }
-
-        $correction->fill([
-            'new_category_id' => $validated['category_id'] ?? $triageResult->category_id,
-            'new_urgency' => $validated['urgency'] ?? $triageResult->urgency->value,
-            'new_suggested_action' => $validated['suggested_action'] ?? $triageResult->suggested_action->value,
-            'note' => $validated['note'] ?? null,
-        ])->save();
-
         $triageResult->update(array_filter([
             'category_id' => $validated['category_id'] ?? null,
             'urgency' => $validated['urgency'] ?? null,
             'suggested_action' => $validated['suggested_action'] ?? null,
-            'status' => TriageStatus::Corrected,
         ], fn ($v) => $v !== null) + ['status' => TriageStatus::Corrected]);
 
         $reputationService->recordTriage($triageResult->email, $triageResult->fresh());

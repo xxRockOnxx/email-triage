@@ -70,7 +70,6 @@ const correctionForm = useForm({
   category_id: triage.value?.category_id ?? null,
   urgency: triage.value?.urgency ?? 'low',
   suggested_action: triage.value?.suggested_action ?? 'none',
-  note: '',
 });
 
 const replyForm = useForm({
@@ -216,16 +215,6 @@ const STATUS_LABEL = {
             </select>
           </label>
         </div>
-
-        <label class="block">
-          <span class="text-xs text-ink-soft mb-1 block">Note (optional)</span>
-          <textarea
-            v-model="correctionForm.note"
-            rows="2"
-            placeholder="Why was this wrong? Helps future triage stay consistent."
-            class="w-full px-2.5 py-1.5 text-sm border border-border rounded-md bg-surface resize-none"
-          />
-        </label>
 
         <div class="flex items-center gap-2">
           <ActionButton label="Save correction" @click="submitCorrection" />

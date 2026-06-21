@@ -50,11 +50,6 @@ class TriageResult extends Model
         return $this->belongsTo(Category::class);
     }
 
-    public function corrections(): HasMany
-    {
-        return $this->hasMany(Correction::class);
-    }
-
     public function hasNewCategoryProposal(): bool
     {
         return $this->category_id === null && $this->proposed_category_name !== null;

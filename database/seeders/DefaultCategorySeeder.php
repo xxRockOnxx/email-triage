@@ -30,6 +30,7 @@ class DefaultCategorySeeder extends Seeder
         'Account/Security' => 'Login alerts, password resets, two-factor codes, account verification.',
         'Forums/Mailing Lists' => 'Group discussions and mailing list digests you participate in.',
         'Spam/Suspicious' => 'Unsolicited or potentially malicious email.',
+        'Onboarding' => 'Welcome messages, setup instructions, getting started guides, and first-time user orientation emails from a service or platform.',
     ];
 
     /**

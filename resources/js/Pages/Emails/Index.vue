@@ -70,6 +70,20 @@ function formatDate(iso) {
     </div>
 
     <div class="bg-surface border border-border rounded-lg overflow-hidden">
+      <!-- Column labels: mirror each row's flex geometry so labels sit over their data -->
+      <div
+        v-if="emails.data.length"
+        class="flex items-center gap-4 px-5 py-2.5 border-b border-border text-xs text-ink-faint uppercase tracking-wide"
+      >
+        <div class="urgency-spine" aria-hidden="true" />
+        <div class="flex-1 font-medium">Sender</div>
+        <div class="flex items-center gap-5 shrink-0">
+          <span class="w-24 text-center font-medium">Confidence</span>
+          <span class="font-medium">Urgency</span>
+          <span class="w-12 text-right font-medium">Received</span>
+        </div>
+      </div>
+
       <div v-if="emails.data.length === 0" class="px-5 py-14 text-center text-sm text-ink-faint">
         No emails match these filters.
       </div>

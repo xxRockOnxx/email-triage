@@ -10,8 +10,7 @@ class TriageResponse
 {
     public function __construct(
         public readonly ?int $matchedCategoryId,
-        public readonly ?string $proposedCategoryName,
-        public readonly ?string $proposedCategoryReasoning,
+        public readonly ?CategoryProposal $categoryProposal,
         public readonly string $summary,
         public readonly string $urgency,        // matches Urgency enum value
         public readonly int $confidence,         // 0-100
@@ -24,6 +23,6 @@ class TriageResponse
 
     public function isNewCategoryProposal(): bool
     {
-        return $this->matchedCategoryId === null && $this->proposedCategoryName !== null;
+        return $this->matchedCategoryId === null && $this->categoryProposal !== null;
     }
 }

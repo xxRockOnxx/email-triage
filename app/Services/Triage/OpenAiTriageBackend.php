@@ -41,8 +41,7 @@ class OpenAiTriageBackend extends AbstractTriageBackend
 
         return new TriageResponse(
             matchedCategoryId: $parsed['matched_category_id'] ?? null,
-            proposedCategoryName: $parsed['proposed_category_name'] ?? null,
-            proposedCategoryReasoning: $parsed['proposed_category_reasoning'] ?? null,
+            categoryProposal: $this->extractCategoryProposal($parsed),
             summary: $parsed['summary'] ?? '',
             urgency: $parsed['urgency'] ?? 'low',
             confidence: (int) ($parsed['confidence'] ?? 0),

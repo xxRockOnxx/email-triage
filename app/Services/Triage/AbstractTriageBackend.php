@@ -3,6 +3,7 @@
 namespace App\Services\Triage;
 
 use App\Contracts\TriageBackendContract;
+use App\DTOs\CategoryProposal;
 use App\DTOs\TriageRequest;
 use App\Enums\SuggestedAction;
 use App\Enums\Urgency;
@@ -31,10 +32,12 @@ abstract class AbstractTriageBackend implements TriageBackendContract
             Classify the email into ONE of these existing categories if it clearly fits:
             {$categoryList}
 
-            If none of the existing categories fit well, propose a new, concise category
-            name and explain why in one sentence. Prefer reusing an existing category over
-            creating a near-duplicate (e.g. do not propose "Invoices" if "Receipt/Invoice"
-            already exists).
+            If none of the existing categories fit well, propose a new category by filling
+            "category_proposal" with BOTH a concise "category" name AND a one-sentence
+            "reasoning" explaining why. If an existing category matches (or you matched one
+            above), set "category_proposal" to null instead. Prefer reusing an existing
+            category over creating a near-duplicate (e.g. do not propose "Invoices" if
+            "Receipt/Invoice" already exists).
 
             {$reputationSection}
             {$ragSection}
@@ -42,8 +45,7 @@ abstract class AbstractTriageBackend implements TriageBackendContract
             Respond ONLY with a JSON object matching this exact shape, no other text:
             {
               "matched_category_id": <int or null>,
-              "proposed_category_name": <string or null>,
-              "proposed_category_reasoning": <string or null>,
+              "category_proposal": <{"category": "...", "reasoning": "..."} or null>,
               "summary": "<2-3 sentence summary of the email>",
               "urgency": "<low|medium|high|critical>",
               "confidence": <int 0-100>,
@@ -102,8 +104,14 @@ abstract class AbstractTriageBackend implements TriageBackendContract
             'type' => 'object',
             'properties' => [
                 'matched_category_id' => ['type' => ['integer', 'null']],
-                'proposed_category_name' => ['type' => ['string', 'null']],
-                'proposed_category_reasoning' => ['type' => ['string', 'null']],
+                'category_proposal' => [
+                    'type' => ['object', 'null'],
+                    'properties' => [
+                        'category' => ['type' => 'string'],
+                        'reasoning' => ['type' => 'string'],
+                    ],
+                    'required' => ['category', 'reasoning'],
+                ],
                 'summary' => ['type' => 'string'],
                 'urgency' => [
                     'type' => 'string',
@@ -118,8 +126,7 @@ abstract class AbstractTriageBackend implements TriageBackendContract
             ],
             'required' => [
                 'matched_category_id',
-                'proposed_category_name',
-                'proposed_category_reasoning',
+                'category_proposal',
                 'summary',
                 'urgency',
                 'confidence',
@@ -144,5 +151,30 @@ abstract class AbstractTriageBackend implements TriageBackendContract
         }
 
         return $decoded;
+    }
+
+    /**
+     * Build the CategoryProposal from the parsed response, enforcing the
+     * "both or none" invariant: a proposal exists only when both the category
+     * name and reasoning are present and non-empty. Any half-filled, blank, or
+     * missing proposal collapses to null so a name and its reason can never
+     * appear without each other.
+     */
+    protected function extractCategoryProposal(array $parsed): ?CategoryProposal
+    {
+        $proposal = $parsed['category_proposal'] ?? null;
+
+        if (! is_array($proposal)) {
+            return null;
+        }
+
+        $name = $proposal['category'] ?? null;
+        $reasoning = $proposal['reasoning'] ?? null;
+
+        if (! filled($name) || ! filled($reasoning)) {
+            return null;
+        }
+
+        return new CategoryProposal(name: $name, reasoning: $reasoning);
     }
 }

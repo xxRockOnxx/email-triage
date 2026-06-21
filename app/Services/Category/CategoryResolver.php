@@ -38,16 +38,17 @@ class CategoryResolver
             return Category::find($response->matchedCategoryId);
         }
 
-        if ($response->proposedCategoryName === null) {
+        $proposal = $response->categoryProposal;
+        if ($proposal === null) {
             return null;
         }
 
         // Idempotent: if this exact name was already proposed (e.g. by an earlier
         // email this batch), reuse it rather than creating duplicates.
         return Category::firstOrCreate(
-            ['name' => $response->proposedCategoryName],
+            ['name' => $proposal->name],
             [
-                'description' => $response->proposedCategoryReasoning,
+                'description' => $proposal->reasoning,
                 'source' => CategorySource::Llm,
                 'status' => 'pending_review',
             ]

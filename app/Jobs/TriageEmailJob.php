@@ -71,11 +71,16 @@ class TriageEmailJob implements ShouldQueue
             $category = $categoryResolver->resolve($response);
             $status = $categoryResolver->routeStatus($response, $category);
 
+            // A proposal is only recorded when the email actually resolved to a
+            // pending-review (new) category. Both columns are sourced from the
+            // same proposal so they can never diverge — no orphan reasoning.
+            $proposal = ($category && $category->status === 'pending_review') ? $response->categoryProposal : null;
+
             $triage = TriageResult::create([
                 'email_id' => $email->id,
                 'category_id' => $category && $category->status === 'active' ? $category->id : null,
-                'proposed_category_name' => $category && $category->status === 'pending_review' ? $category->name : null,
-                'proposed_category_reasoning' => $response->proposedCategoryReasoning,
+                'proposed_category_name' => $proposal?->name,
+                'proposed_category_reasoning' => $proposal?->reasoning,
                 'summary' => $response->summary,
                 'urgency' => $response->urgency,
                 'confidence' => $response->confidence,

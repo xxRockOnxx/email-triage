@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TriageStatus;
-use App\Jobs\ReembedAfterCorrectionJob;
 use App\Models\Correction;
 use App\Models\TriageResult;
 use App\Services\Reputation\SenderReputationService;
@@ -64,8 +63,6 @@ class TriageResultController extends Controller
         ], fn ($v) => $v !== null) + ['status' => TriageStatus::Corrected]);
 
         $reputationService->recordTriage($triageResult->email, $triageResult->fresh());
-
-        ReembedAfterCorrectionJob::dispatch($triageResult->email_id);
 
         return back()->with('success', 'Correction saved — this will improve future triage.');
     }

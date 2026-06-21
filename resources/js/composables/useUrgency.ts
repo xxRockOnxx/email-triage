@@ -24,10 +24,10 @@ const URGENCY_CONFIG = {
         spineClass: "urgency-spine--critical",
         badgeClass: "bg-urgency-critical-bg text-urgency-critical",
     },
-};
+} as const;
 
 export function useUrgency() {
-    function config(urgency) {
+    function config(urgency: keyof typeof URGENCY_CONFIG) {
         return URGENCY_CONFIG[urgency] ?? URGENCY_CONFIG.low;
     }
 

@@ -56,9 +56,17 @@ class ImapGmailProvider implements MailProviderContract
                 ? new \DateTimeImmutable($sinceCursor)
                 : new \DateTimeImmutable('-'.config('gmail.initial_fetch_days', 3).' days');
 
-            // leaveUnread() forces BODY.PEEK so fetching the messages does
-            // not mark them \Seen — we never alter mailbox state while polling.
-            $query = $inbox->messages()->since($sinceDate)->leaveUnread();
+            // imapengine fetches only UIDs by default, so we must opt into the
+            // parts we actually parse: headers (subject/from/message-id/headers),
+            // body (text/html — parse() combines head+body to split MIME parts),
+            // and flags (\FLAGGED -> IMPORTANT). leaveUnread() forces BODY.PEEK
+            // so fetching doesn't mark the messages \Seen while polling.
+            $query = $inbox->messages()
+                ->since($sinceDate)
+                ->leaveUnread()
+                ->withHeaders()
+                ->withBody()
+                ->withFlags();
 
             $messages = [];
             foreach ($query->get() as $imapMessage) {

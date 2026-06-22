@@ -11,6 +11,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -67,7 +68,15 @@ class PollGmailJob implements ShouldQueue, ShouldBeUnique
             ]);
 
             foreach ($newEmailIds as $emailId) {
-                AnonymizeEmailJob::dispatch($emailId);
+                Bus::chain([
+                    new AnonymizeEmailJob($emailId),
+                    new TriageEmailJob($emailId),
+                ])->catch(function (\Throwable $e) use ($emailId) {
+                    Log::error('Email pipeline failed', [
+                        'email_id' => $emailId,
+                        'error' => $e->getMessage(),
+                    ]);
+                })->dispatch();
             }
 
             Log::info('Gmail poll complete', [

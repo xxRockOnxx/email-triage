@@ -62,8 +62,6 @@ class AnonymizeEmailJob implements ShouldQueue
         });
 
         Log::info('Email anonymized', ['email_id' => $email->id]);
-
-        TriageEmailJob::dispatch($email->id);
     }
 
     public function failed(\Throwable $exception): void

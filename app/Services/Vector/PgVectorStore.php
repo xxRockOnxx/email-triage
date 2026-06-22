@@ -39,16 +39,16 @@ class PgVectorStore implements VectorStoreContract
         if ($excludeEmailId) {
             $bindings[] = $excludeEmailId;
         }
-        $bindings[] = $vectorLiteral;
-        $bindings[] = $limit * 3; // over-fetch; filtered down to eligible triage statuses below
+        $bindings[] = $limit * 3;
 
         $rows = DB::select(
-            "SELECT ee.email_id, (ee.embedding <=> ?::vector) AS distance
-             FROM email_embeddings ee
-             WHERE 1=1 {$exclusionClause}
-             ORDER BY ee.embedding <=> ?::vector ASC
-             LIMIT ?",
-            $bindings
+            "WITH query_vec AS (SELECT ?::vector AS vec)
+            SELECT ee.email_id, (ee.embedding <=> qv.vec) AS distance
+            FROM email_embeddings ee, query_vec qv
+            WHERE 1=1 {$exclusionClause}
+            ORDER BY ee.embedding <=> qv.vec ASC
+            LIMIT ?",
+            $bindings  // now only one $vectorLiteral needed
         );
 
         if (empty($rows)) {

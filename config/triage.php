@@ -19,6 +19,8 @@ return [
     'ollama' => [
         'base_url' => env('OLLAMA_BASE_URL', 'http://localhost:11434'),
         'model' => env('OLLAMA_TRIAGE_MODEL', 'phi3.5'),
+        'temperature' => env('OLLAMA_TEMPERATURE', 0),
+        'num_ctx' => env('OLLAMA_NUM_CTX', 4096),
     ],
 
     'anthropic' => [

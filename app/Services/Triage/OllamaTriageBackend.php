@@ -29,7 +29,8 @@ class OllamaTriageBackend extends AbstractTriageBackend
                 'stream' => false,
                 'format' => $this->responseSchema(),
                 'options' => [
-                    'temperature' => config('triage.temperature', 0.2),
+                    'temperature' => (float) config('triage.ollama.temperature', 0),
+                    'num_ctx' => config('triage.ollama.num_ctx', 4096),
                 ],
                 'messages' => [
                     ['role' => 'system', 'content' => $this->systemPrompt($request)],

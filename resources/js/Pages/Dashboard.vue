@@ -10,6 +10,7 @@ defineOptions({ layout: AppLayout });
 const props = defineProps({
   stats: { type: Object, required: true },
   sync_state: { type: Object, default: null },
+  next_poll_at: { type: String, default: null },
   recent_needs_review: { type: Array, required: true },
 });
 
@@ -26,16 +27,27 @@ function timeAgo(iso) {
 
 <template>
   <div class="max-w-5xl mx-auto px-8 py-8">
-    <div class="flex items-end justify-between mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
       <div>
         <h1 class="text-xl font-semibold tracking-tight">Inbox overview</h1>
-        <p class="text-sm text-ink-soft mt-0.5">
-          Last polled
-          <span class="font-mono-tabular">{{ timeAgo(sync_state?.last_polled_at) }}</span>
-          <span v-if="sync_state?.status === 'error'" class="text-urgency-critical ml-2">
-            · sync error: {{ sync_state.last_error }}
-          </span>
-        </p>
+      </div>
+
+      <div class="flex items-center gap-3 text-xs sm:text-sm font-mono-tabular text-ink-soft">
+        <!-- Error Alert takes precedence -->
+        <div v-if="syncState?.status === 'error'" class="text-urgency-critical bg-red-50 px-2 py-1 rounded">
+          Error: {{ syncState.last_error }}
+        </div>
+
+        <!-- Standard Meta -->
+        <div v-else class="text-right">
+          <div>Polled {{ timeAgo(sync_state?.last_polled_at) }}</div>
+          <div v-if="next_poll_at && syncState?.status !== 'polling'" class="text-[11px] opacity-70">
+            Next: {{ new Date(next_poll_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
+          </div>
+          <div v-if="syncState?.status === 'polling'" class="text-emerald-600 text-[11px] animate-pulse">
+            Polling...
+          </div>
+        </div>
       </div>
     </div>
 

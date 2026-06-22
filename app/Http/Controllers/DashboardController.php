@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Email;
 use App\Models\GmailSyncState;
 use App\Models\TriageResult;
+use Cron\CronExpression;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -24,11 +25,19 @@ class DashboardController extends Controller
                     ->count(),
             ],
             'sync_state' => GmailSyncState::first(),
+            'next_poll_at' => $this->getNextPollTime()->format('c'),
             'recent_needs_review' => Email::with('latestTriageResult.category')
                 ->whereHas('latestTriageResult', fn ($q) => $q->where('status', 'needs_review'))
                 ->orderByDesc('received_at')
                 ->limit(10)
                 ->get(),
         ]);
+    }
+
+    private function getNextPollTime(): \DateTime
+    {
+        $cronExpression = config('gmail.poll_cron', '*/5 * * * *');
+        $cron = new CronExpression($cronExpression);
+        return $cron->getNextRunDate();
     }
 }

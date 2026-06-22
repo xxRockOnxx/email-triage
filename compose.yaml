@@ -63,6 +63,16 @@ services:
         restart: unless-stopped
         networks:
             - sail
+    scheduler:
+        extends:
+            service: laravel.test
+        ports: !reset []
+        command: ["php", "artisan", "schedule:work"]
+    worker:
+        extends:
+            service: laravel.test
+        ports: !reset []
+        command: ["php", "artisan", "queue:work", "--verbose", "--tries=3"]
 networks:
     sail:
         driver: bridge

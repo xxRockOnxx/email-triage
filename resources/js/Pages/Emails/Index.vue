@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue';
-import { router, Link } from '@inertiajs/vue3';
+import { router, Link, usePoll } from '@inertiajs/vue3';
 import debounce from "@/lib/debounce";
 import AppLayout from '@/Layouts/AppLayout.vue';
 import UrgencyBadge from '@/Components/UrgencyBadge.vue';
@@ -65,6 +65,8 @@ function runAction(email, type) {
   }
   router.post(route(`emails.${type}`, email.id), {}, { preserveScroll: true });
 }
+
+usePoll(1000)
 </script>
 
 <template>

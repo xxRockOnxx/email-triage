@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\PollGmailJob;
 use App\Models\Email;
 use App\Models\GmailSyncState;
 use App\Models\TriageResult;
@@ -39,5 +40,12 @@ class DashboardController extends Controller
         $cronExpression = config('gmail.poll_cron', '*/5 * * * *');
         $cron = new CronExpression($cronExpression);
         return $cron->getNextRunDate();
+    }
+
+    public function pollNow(): \Illuminate\Http\RedirectResponse
+    {
+        PollGmailJob::dispatch(config('gmail.account_email'));
+
+        return redirect()->route('dashboard');
     }
 }

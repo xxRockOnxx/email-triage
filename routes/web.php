@@ -10,6 +10,7 @@ use App\Http\Controllers\TriageResultController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+Route::post('/poll-now', [DashboardController::class, 'pollNow'])->name('dashboard.poll');
 
 Route::prefix('emails')->name('emails.')->group(function () {
     Route::get('/', [EmailController::class, 'index'])->name('index');

@@ -1,9 +1,10 @@
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, router, usePoll } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import StatCard from '@/Components/StatCard.vue';
 import UrgencyBadge from '@/Components/UrgencyBadge.vue';
 import CategoryPill from '@/Components/CategoryPill.vue';
+import { computed } from 'vue';
 
 defineOptions({ layout: AppLayout });
 
@@ -23,29 +24,59 @@ function timeAgo(iso) {
   if (diffHr < 24) return `${diffHr}h ago`;
   return `${Math.round(diffHr / 24)}d ago`;
 }
+
+const isPolling = computed(() => props.sync_state?.status === 'polling');
+
+function pollNow() {
+    router.post(route('dashboard.poll'), {}, {
+        preserveScroll: true,
+    });
+}
+
+usePoll(1000)
 </script>
 
 <template>
   <div class="max-w-5xl mx-auto px-8 py-8">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
-      <div>
-        <h1 class="text-xl font-semibold tracking-tight">Inbox overview</h1>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-stroke-soft">
+      <!-- Left Side: Title & Action -->
+      <div class="flex items-center gap-4">
+        <h1 class="text-xl font-semibold tracking-tight text-ink">Inbox overview</h1>
+
+        <!-- Poll Now Button -->
+        <button
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-stroke text-ink hover:bg-surface-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          :disabled="isPolling"
+          @click="pollNow"
+        >
+          <!-- Heroicon: ArrowPath (Sync/Refresh) -->
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="2"
+            stroke="currentColor"
+            class="w-3.5 h-3.5"
+            :class="{ 'animate-spin': syncState?.status === 'polling' }"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          <span>{{ syncState?.status === 'polling' ? 'Polling...' : 'Poll now' }}</span>
+        </button>
       </div>
 
-      <div class="flex items-center gap-3 text-xs sm:text-sm font-mono-tabular text-ink-soft">
+      <!-- Right Side: System Metadata Statuses -->
+      <div class="flex items-center gap-3 text-xs md:text-sm font-mono-tabular text-ink-soft md:text-right">
         <!-- Error Alert takes precedence -->
-        <div v-if="syncState?.status === 'error'" class="text-urgency-critical bg-red-50 px-2 py-1 rounded">
+        <div v-if="syncState?.status === 'error'" class="text-urgency-critical bg-red-50 px-2 py-1 rounded border border-red-100">
           Error: {{ syncState.last_error }}
         </div>
 
         <!-- Standard Meta -->
-        <div v-else class="text-right">
+        <div v-else>
           <div>Polled {{ timeAgo(sync_state?.last_polled_at) }}</div>
-          <div v-if="next_poll_at && syncState?.status !== 'polling'" class="text-[11px] opacity-70">
+          <div v-if="next_poll_at && syncState?.status !== 'polling'" class="text-[11px] opacity-70 mt-0.5">
             Next: {{ new Date(next_poll_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
-          </div>
-          <div v-if="syncState?.status === 'polling'" class="text-emerald-600 text-[11px] animate-pulse">
-            Polling...
           </div>
         </div>
       </div>

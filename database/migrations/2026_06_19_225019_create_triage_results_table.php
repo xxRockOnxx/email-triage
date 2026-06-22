@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('email_id')->constrained()->cascadeOnDelete();
             $table->foreignId('category_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('llm_category_id')->nullable()->constrained('categories')->nullOnDelete();
 
             // If the LLM proposed a brand-new category not yet in the categories table,
             // it lands here pending review rather than auto-creating.
@@ -20,7 +21,8 @@ return new class extends Migration
 
             $table->text('summary');
 
-            $table->enum('urgency', ['low', 'medium', 'high', 'critical'])->default('low');
+            $table->enum('urgency', ['low', 'medium', 'high', 'critical']);
+            $table->enum('llm_urgency', ['low', 'medium', 'high', 'critical']);
 
             // 0-100, the LLM's self-reported confidence in this triage
             $table->unsignedTinyInteger('confidence');
@@ -28,7 +30,9 @@ return new class extends Migration
             // Routing outcome derived from confidence vs category threshold
             $table->enum('status', ['auto_filed', 'needs_review', 'corrected'])->default('needs_review');
 
-            $table->enum('suggested_action', ['reply', 'archive', 'delete', 'flag', 'none'])->default('none');
+            $table->enum('suggested_action', ['reply', 'archive', 'delete', 'flag', 'none']);
+            $table->enum('llm_suggested_action', ['reply', 'archive', 'delete', 'flag', 'none']);
+
             $table->text('suggested_reply_draft')->nullable();
 
             // Which LLM backend/model produced this, for auditing / comparing backends

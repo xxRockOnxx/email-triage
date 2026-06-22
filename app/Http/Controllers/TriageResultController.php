@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Enums\TriageStatus;
-use App\Models\Correction;
 use App\Models\TriageResult;
 use App\Services\Reputation\SenderReputationService;
 use Illuminate\Http\RedirectResponse;
@@ -23,10 +22,11 @@ class TriageResultController extends Controller
     }
 
     /**
-     * User corrects a triage result. Upserts the single Correction record for
-     * this triage result (the core training signal) — re-corrections refresh it
-     * in place rather than appending. Also updates the TriageResult, re-embeds the
-     * email as a high-trust RAG example, and folds the correction into reputation.
+     * User corrects a triage result: overwrites the live category/urgency/action
+     * labels on the TriageResult and marks it corrected, then folds the new
+     * labels into reputation. The immutable llm_* snapshot columns (the LLM's
+     * original prediction, captured at triage) are left untouched, so corrected
+     * results can later serve as negative-example RAG context.
      */
     public function correct(Request $request, TriageResult $triageResult, SenderReputationService $reputationService): RedirectResponse
     {

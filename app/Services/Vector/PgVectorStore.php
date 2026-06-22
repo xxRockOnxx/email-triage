@@ -58,7 +58,7 @@ class PgVectorStore implements VectorStoreContract
         $emailIds = array_column($rows, 'email_id');
         $distanceByEmailId = array_column($rows, 'distance', 'email_id');
 
-        $emails = Email::with(['latestTriageResult.category'])
+        $emails = Email::with(['latestTriageResult.category', 'latestTriageResult.llmCategory'])
             ->whereIn('id', $emailIds)
             ->whereHas('latestTriageResult', fn ($q) => $q->whereIn('status', ['auto_filed', 'corrected']))
             ->get()
@@ -85,6 +85,9 @@ class PgVectorStore implements VectorStoreContract
                 categoryName: $triage->category?->name ?? $triage->proposed_category_name ?? 'Uncategorized',
                 urgency: $triage->urgency->value,
                 suggestedAction: $triage->suggested_action->value,
+                originalLlmCategory: $triage->llmCategory?->name ?? $triage->proposed_category_name ?? 'Uncategorized',
+                originalLlmUrgency: $triage->llm_urgency->value,
+                originalLlmAction: $triage->llm_suggested_action->value,
                 similarityScore: 1 - $distance, // cosine distance -> similarity (0..1, higher = closer)
                 wasUserCorrected: $triage->status->value === 'corrected',
             );

@@ -16,6 +16,9 @@ class RagExample
         public readonly string $categoryName,
         public readonly string $urgency,
         public readonly string $suggestedAction,
+        public readonly string $originalLlmCategory,
+        public readonly string $originalLlmUrgency,
+        public readonly string $originalLlmAction,
         public readonly float $similarityScore,
         public readonly bool $wasUserCorrected = false,
     ) {}

@@ -93,14 +93,20 @@ abstract class AbstractTriageBackend implements TriageBackendContract
 
         $examples = collect($request->ragExamples)
             ->map(function ($ex) {
-                $correctionNote = $ex->wasUserCorrected ? ' (user-corrected — trust this label strongly)' : '';
+                if ($ex->wasUserCorrected) {
+                    return "- Similar past email \"{$ex->anonymizedSubject}\" (USER CORRECTION):\n" .
+                           "  Initially: category=\"{$ex->originalLlmCategory}\", urgency={$ex->originalLlmUrgency}, action={$ex->originalLlmAction}\n" .
+                           "  Corrected to: category=\"{$ex->categoryName}\", urgency={$ex->urgency}, action={$ex->suggestedAction}";
+                }
 
-                return "- Similar past email \"{$ex->anonymizedSubject}\" was categorized as ".
-                       "\"{$ex->categoryName}\", urgency={$ex->urgency}, action={$ex->suggestedAction}{$correctionNote}";
+                return "- Similar past email \"{$ex->anonymizedSubject}\" was categorized as " .
+                       "\"{$ex->categoryName}\", urgency={$ex->urgency}, action={$ex->suggestedAction}";
             })
             ->implode("\n");
 
-        return "Here are similar emails you've triaged before, to calibrate consistency:\n{$examples}\n";
+        return "Here are similar past emails to calibrate consistency. " .
+               "User-corrected examples are ground truth — weight them more heavily than uncorrected ones:\n" .
+               "{$examples}\n";
     }
 
     private function formatReputation(TriageRequest $request): string

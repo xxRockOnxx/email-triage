@@ -91,6 +91,14 @@ class TriageEmailJob implements ShouldQueue
                 'llm_model' => $response->llmModel,
                 'raw_llm_response' => $response->rawResponse,
                 'rag_context_email_ids' => $ragContextEmailIds,
+
+                // Immutable snapshot of the LLM's ORIGINAL output. Unlike
+                // category_id (active-only), llm_category_id keeps the resolved
+                // category even for proposed/pending-review ones, so the original
+                // prediction is always nameable. Never overwritten by corrections.
+                'llm_category_id' => $category?->id,
+                'llm_urgency' => $response->urgency,
+                'llm_suggested_action' => $response->suggestedAction,
             ]);
 
             $reputationService->recordTriage($email, $triage);

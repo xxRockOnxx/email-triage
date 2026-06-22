@@ -14,13 +14,16 @@ class TriageResult extends Model
     protected $fillable = [
         'email_id',
         'category_id',
+        'llm_category_id',
         'proposed_category_name',
         'proposed_category_reasoning',
         'summary',
         'urgency',
+        'llm_urgency',
         'confidence',
         'status',
         'suggested_action',
+        'llm_suggested_action',
         'suggested_reply_draft',
         'llm_backend',
         'llm_model',
@@ -32,9 +35,11 @@ class TriageResult extends Model
     {
         return [
             'urgency' => Urgency::class,
+            'llm_urgency' => Urgency::class,
             'confidence' => 'integer',
             'status' => TriageStatus::class,
             'suggested_action' => SuggestedAction::class,
+            'llm_suggested_action' => SuggestedAction::class,
             'raw_llm_response' => 'array',
             'rag_context_email_ids' => 'array',
         ];
@@ -48,6 +53,15 @@ class TriageResult extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    /**
+     * The category the LLM originally predicted (before any user correction),
+     * snapshotted at creation. Mirrors category() but on the immutable column.
+     */
+    public function llmCategory(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'llm_category_id');
     }
 
     public function hasNewCategoryProposal(): bool

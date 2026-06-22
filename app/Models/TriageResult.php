@@ -18,6 +18,7 @@ class TriageResult extends Model
         'proposed_category_name',
         'proposed_category_reasoning',
         'summary',
+        'triage_reasoning',
         'urgency',
         'llm_urgency',
         'confidence',

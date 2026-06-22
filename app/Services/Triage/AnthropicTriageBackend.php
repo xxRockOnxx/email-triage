@@ -49,6 +49,7 @@ class AnthropicTriageBackend extends AbstractTriageBackend
             matchedCategoryId: $parsed['matched_category_id'] ?? null,
             categoryProposal: $this->extractCategoryProposal($parsed),
             summary: $parsed['summary'] ?? '',
+            triageReasoning: $parsed['triage_reasoning'] ?? '',
             urgency: $parsed['urgency'] ?? 'low',
             confidence: (int) ($parsed['confidence'] ?? 0),
             suggestedAction: $parsed['suggested_action'] ?? 'none',

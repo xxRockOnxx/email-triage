@@ -12,6 +12,7 @@ class TriageResponse
         public readonly ?int $matchedCategoryId,
         public readonly ?CategoryProposal $categoryProposal,
         public readonly string $summary,
+        public readonly string $triageReasoning, // 1-2 sentences explaining WHY, shown to the user
         public readonly string $urgency,        // matches Urgency enum value
         public readonly int $confidence,         // 0-100
         public readonly string $suggestedAction, // matches SuggestedAction enum value

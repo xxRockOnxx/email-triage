@@ -33,6 +33,7 @@ abstract class AbstractTriageBackend implements TriageBackendContract
 
             Respond ONLY with a JSON object matching this exact shape, no other text:
             {
+              "triage_reasoning": "<1-2 sentences explaining WHY you chose this category/urgency/action, referencing sender history or past examples if used>",
               "matched_category_id": <int or null>,
               "category_proposal": <{"category": "...", "reasoning": "..."} or null>,
               "summary": "<2-3 sentence summary of the email>",
@@ -132,6 +133,7 @@ abstract class AbstractTriageBackend implements TriageBackendContract
         return [
             'type' => 'object',
             'properties' => [
+                'triage_reasoning' => ['type' => 'string'],
                 'matched_category_id' => ['type' => ['integer', 'null']],
                 'category_proposal' => [
                     'type' => ['object', 'null'],
@@ -154,6 +156,7 @@ abstract class AbstractTriageBackend implements TriageBackendContract
                 'suggested_reply_draft' => ['type' => ['string', 'null']],
             ],
             'required' => [
+                'triage_reasoning',
                 'matched_category_id',
                 'category_proposal',
                 'summary',

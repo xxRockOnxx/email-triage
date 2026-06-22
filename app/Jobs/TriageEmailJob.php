@@ -82,6 +82,7 @@ class TriageEmailJob implements ShouldQueue
                 'proposed_category_name' => $proposal?->name,
                 'proposed_category_reasoning' => $proposal?->reasoning,
                 'summary' => $response->summary,
+                'triage_reasoning' => $response->triageReasoning,
                 'urgency' => $response->urgency,
                 'confidence' => $response->confidence,
                 'status' => $status,

@@ -159,6 +159,13 @@ const STATUS_LABEL = {
         {{ deanonymized_summary || triage.summary }}
       </p>
 
+      <div
+        v-if="triage.triage_reasoning && triage.status !== 'corrected'"
+        class="text-xs text-ink-soft bg-surface-sunken rounded px-3 py-2 mb-4"
+      >
+        <span class="font-medium">Why this triage:</span> {{ triage.triage_reasoning }}
+      </div>
+
       <div v-if="triage.proposed_category_reasoning" class="text-xs text-ink-soft bg-surface-sunken rounded px-3 py-2 mb-4">
         <span class="font-medium">Why a new category:</span> {{ triage.proposed_category_reasoning }}
       </div>

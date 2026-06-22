@@ -21,6 +21,10 @@ return new class extends Migration
 
             $table->text('summary');
 
+            // 1-2 sentences from the LLM explaining WHY it chose this category/urgency/action,
+            // shown to the user so they can trust or correct the triage. Hidden once corrected.
+            $table->text('triage_reasoning');
+
             $table->enum('urgency', ['low', 'medium', 'high', 'critical']);
             $table->enum('llm_urgency', ['low', 'medium', 'high', 'critical']);
 

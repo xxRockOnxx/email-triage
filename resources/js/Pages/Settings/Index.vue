@@ -11,6 +11,7 @@ const rows = [
   { key: 'triage_backend', label: 'Triage LLM backend' },
   { key: 'triage_model', label: 'Triage model' },
   { key: 'embedding_backend', label: 'Embedding backend' },
+  { key: 'embedding_model', label: 'Embedding model' },
   { key: 'poll_cron', label: 'Gmail poll schedule (cron)' },
   { key: 'default_confidence_threshold', label: 'Default auto-file threshold' },
   { key: 'presidio_score_threshold', label: 'Presidio detection threshold' },

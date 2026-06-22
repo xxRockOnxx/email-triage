@@ -22,6 +22,7 @@ class SettingsController extends Controller
                 'triage_backend' => config('triage.backend'),
                 'triage_model' => config('triage.'.config('triage.backend').'.model'),
                 'embedding_backend' => config('embedding.backend'),
+                'embedding_model' => config('embedding.'.config('embedding.backend').'.model'),
                 'poll_cron' => config('gmail.poll_cron'),
                 'default_confidence_threshold' => config('triage.default_confidence_threshold'),
                 'presidio_score_threshold' => config('presidio.score_threshold'),

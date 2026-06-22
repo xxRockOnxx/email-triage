@@ -15,6 +15,14 @@ const formattedDate = computed(() => {
   return new Date(props.email.received_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 });
 
+const formattedTime = computed(() => {
+  const date = new Date(props.email.received_at);
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }).format(date);
+});
 
 // Map a triage result's `suggested_action` to an inline list-row action.
 // `reply` can't execute inline (the draft endpoint needs a body), so it
@@ -87,9 +95,15 @@ function runAction() {
         <div class="w-20 flex justify-center">
           <UrgencyBadge :urgency="email.latest_triage_result?.urgency ?? 'low'" />
         </div>
-        <span class="text-xs text-ink-faint font-mono-tabular w-20 text-right">
-          {{ formattedDate }}
-        </span>
+
+        <div class="flex flex-col items-end justify-center w-20 shrink-0">
+          <span class="text-xs text-ink-faint font-mono-tabular text-right">
+            {{ formattedDate }}
+          </span>
+          <span class="text-[10px] text-ink-faint font-mono-tabular text-right leading-none mt-0.5">
+            {{ formattedTime }}
+          </span>
+        </div>
       </div>
     </Link>
 

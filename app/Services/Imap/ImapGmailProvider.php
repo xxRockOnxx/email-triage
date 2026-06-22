@@ -7,6 +7,7 @@ use App\DTOs\InboundEmail;
 use DirectoryTree\ImapEngine\Mailbox;
 use DirectoryTree\ImapEngine\Message;
 use Illuminate\Support\Facades\Log;
+use League\HTMLToMarkdown\Converter\TableConverter;
 use League\HTMLToMarkdown\HtmlConverter;
 
 /**
@@ -148,6 +149,7 @@ class ImapGmailProvider implements MailProviderContract
             $plain = $this->htmlToMarkdown($html);
         }
         $bodyText = $this->normalizeWhitespace($this->stripQuotedReplies((string) $plain));
+        $bodyText = strip_tags($bodyText); // safety belt for any leftover HTML that confuses the LLM
 
         $headers = [];
         foreach (['list-unsubscribe', 'reply-to', 'in-reply-to', 'references'] as $headerName) {
@@ -235,10 +237,14 @@ class ImapGmailProvider implements MailProviderContract
     {
         $html = preg_replace('#<(style|script)\b[^>]*>.*?</\1>#is', '', $html);
 
-        return (new HtmlConverter([
+        $converter = new HtmlConverter([
             'strip_tags' => true,
             'hard_break' => false,
-        ]))->convert($html);
+        ]);
+
+        $converter->getEnvironment()->addConverter(new TableConverter());
+
+        return $converter->convert($html);
     }
 
     /**

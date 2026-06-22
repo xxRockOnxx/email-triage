@@ -1,13 +1,10 @@
 <script setup>
 import { ref, watch } from 'vue';
-import { router, Link, usePoll } from '@inertiajs/vue3';
+import { router, usePoll } from '@inertiajs/vue3';
 import debounce from "@/lib/debounce";
 import AppLayout from '@/Layouts/AppLayout.vue';
-import UrgencyBadge from '@/Components/UrgencyBadge.vue';
-import CategoryPill from '@/Components/CategoryPill.vue';
-import ConfidenceMeter from '@/Components/ConfidenceMeter.vue';
-import ActionButton from '@/Components/ActionButton.vue';
 import Pagination from '@/Components/Pagination.vue';
+import EmailListItem from './components/EmailListItem.vue';
 
 defineOptions({ layout: AppLayout });
 
@@ -37,34 +34,6 @@ const debouncedSearch = debounce((value) => {
 }, 350);
 
 watch(searchTerm, (value) => debouncedSearch(value));
-
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-// Map a triage result's `suggested_action` to an inline list-row action.
-// `reply` can't execute inline (the draft endpoint needs a body), so it
-// routes to the detail page where the draft can be reviewed first.
-const SUGGESTED_ACTION = {
-  archive: { label: 'Archive', confirm: 'Archive this email?' },
-  delete: { label: 'Delete', variant: 'danger', confirm: 'Move this email to trash?' },
-  flag: { label: 'Flag', confirm: 'Flag this email?' },
-  reply: { label: 'Reply', navigate: true },
-};
-
-function actionFor(email) {
-  const type = email.latest_triage_result?.suggested_action;
-  if (!type || type === 'none') return null;
-  return SUGGESTED_ACTION[type] ?? null;
-}
-
-function runAction(email, type) {
-  if (type === 'reply') {
-    router.get(route('emails.show', email.id));
-    return;
-  }
-  router.post(route(`emails.${type}`, email.id), {}, { preserveScroll: true });
-}
 
 usePoll(1000)
 </script>
@@ -128,64 +97,11 @@ usePoll(1000)
       </div>
 
       <ul v-else class="divide-y divide-border">
-        <li
+        <EmailListItem
           v-for="email in emails.data"
           :key="email.id"
-          class="flex items-stretch gap-4 px-5 py-3.5 hover:bg-surface-sunken transition-colors"
-        >
-          <Link
-            :href="route('emails.show', email.id)"
-            class="flex items-stretch gap-4 flex-1 min-w-0"
-          >
-            <div
-              class="urgency-spine"
-              :class="`urgency-spine--${email.latest_triage_result?.urgency ?? 'low'}`"
-            />
-
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <span class="text-sm font-medium text-ink truncate max-w-[220px]">
-                  {{ email.sender_name || email.sender_email }}
-                </span>
-                <CategoryPill
-                  v-if="email.latest_triage_result?.category"
-                  :name="email.latest_triage_result.category.name"
-                />
-                <CategoryPill
-                  v-else-if="email.latest_triage_result?.proposed_category_name"
-                  :name="email.latest_triage_result.proposed_category_name"
-                  pending
-                />
-              </div>
-              <p class="text-sm text-ink-soft">
-                {{ email.latest_triage_result?.summary || 'Awaiting triage…' }}
-              </p>
-            </div>
-
-            <div class="flex items-center gap-5 shrink-0">
-              <div class="w-20 flex justify-end">
-                <ConfidenceMeter v-if="email.latest_triage_result" :confidence="email.latest_triage_result.confidence" />
-              </div>
-              <div class="w-20 flex justify-center">
-                <UrgencyBadge :urgency="email.latest_triage_result?.urgency ?? 'low'" />
-              </div>
-              <span class="text-xs text-ink-faint font-mono-tabular w-20 text-right">
-                {{ formatDate(email.received_at) }}
-              </span>
-            </div>
-          </Link>
-
-          <div class="flex items-center justify-end shrink-0 w-24">
-            <ActionButton
-              v-if="actionFor(email)"
-              class="w-24"
-              :label="actionFor(email).label"
-              :variant="actionFor(email).variant || 'default'"
-              :confirm-message="actionFor(email).confirm"
-              @click="runAction(email, email.latest_triage_result.suggested_action)"
-            />
-          </div>
-        </li>
+          :email="email"
+        />
       </ul>
     </div>
 

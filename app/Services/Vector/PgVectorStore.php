@@ -58,7 +58,8 @@ class PgVectorStore implements VectorStoreContract
         $emailIds = array_column($rows, 'email_id');
         $distanceByEmailId = array_column($rows, 'distance', 'email_id');
 
-        $emails = Email::with(['latestTriageResult.category', 'latestTriageResult.llmCategory'])
+        $emails = Email::withTrashed()
+            ->with(['latestTriageResult.category', 'latestTriageResult.llmCategory'])
             ->whereIn('id', $emailIds)
             ->whereHas('latestTriageResult', fn ($q) => $q->whereIn('status', ['auto_filed', 'corrected']))
             ->get()

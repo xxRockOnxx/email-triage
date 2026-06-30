@@ -7,6 +7,7 @@ import UrgencyBadge from '@/Components/UrgencyBadge.vue';
 import CategoryPill from '@/Components/CategoryPill.vue';
 import ConfidenceMeter from '@/Components/ConfidenceMeter.vue';
 import ActionButton from '@/Components/ActionButton.vue';
+import ProcessingLog from '@/Components/ProcessingLog.vue';
 
 defineOptions({ layout: AppLayout });
 
@@ -327,5 +328,8 @@ const STATUS_LABEL = {
         </li>
       </ul>
     </div>
+
+    <!-- Processing log (pipeline internals: what was configured/sent/received) -->
+    <ProcessingLog v-if="email.pipeline_logs?.length" :logs="email.pipeline_logs" />
   </div>
 </template>

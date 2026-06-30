@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Contracts\AnonymizerContract;
 use App\Models\Email;
 use App\Models\PiiMapping;
+use App\Models\PipelineLog;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -33,35 +34,75 @@ class AnonymizeEmailJob implements ShouldQueue
         $email = Email::findOrFail($this->emailId);
 
         if ($email->is_anonymized) {
+            PipelineLog::record($email->id, 'anonymize', 'skipped', $this->attempts(), 'already anonymized');
+
             return; // idempotent — already processed
         }
 
-        $subjectResult = $anonymizer->anonymize($email->subject_enc ?? '');
-        $bodyResult = $anonymizer->anonymize($email->body_enc ?? '');
+        PipelineLog::record($email->id, 'anonymize', 'started', $this->attempts(), payload: [
+            'config' => [
+                'analyzer_url' => config('presidio.analyzer_url'),
+                'anonymizer_url' => config('presidio.anonymizer_url'),
+                'score_threshold' => config('presidio.score_threshold'),
+                'entities' => config('presidio.entities'),
+            ],
+            'inputs' => [
+                'subject_chars' => mb_strlen($email->subject_enc ?? ''),
+                'body_chars' => mb_strlen($email->body_enc ?? ''),
+            ],
+        ]);
 
-        DB::transaction(function () use ($email, $subjectResult, $bodyResult) {
-            $email->update([
-                'anonymized_subject' => $subjectResult->anonymizedText,
-                'anonymized_body' => $bodyResult->anonymizedText,
-                'is_anonymized' => true,
-                'anonymized_at' => now(),
-            ]);
+        $start = microtime(true);
 
-            foreach ([$subjectResult, $bodyResult] as $result) {
-                foreach ($result->mappings as $mapping) {
-                    PiiMapping::updateOrCreate(
-                        ['email_id' => $email->id, 'placeholder' => $mapping->placeholder],
-                        [
-                            'entity_type' => $mapping->entityType,
-                            'original_value_enc' => $mapping->originalValue,
-                            'detection_score' => $mapping->detectionScore,
-                        ]
-                    );
+        try {
+            $subjectResult = $anonymizer->anonymize($email->subject_enc ?? '');
+            $bodyResult = $anonymizer->anonymize($email->body_enc ?? '');
+
+            DB::transaction(function () use ($email, $subjectResult, $bodyResult) {
+                $email->update([
+                    'anonymized_subject' => $subjectResult->anonymizedText,
+                    'anonymized_body' => $bodyResult->anonymizedText,
+                    'is_anonymized' => true,
+                    'anonymized_at' => now(),
+                ]);
+
+                foreach ([$subjectResult, $bodyResult] as $result) {
+                    foreach ($result->mappings as $mapping) {
+                        PiiMapping::updateOrCreate(
+                            ['email_id' => $email->id, 'placeholder' => $mapping->placeholder],
+                            [
+                                'entity_type' => $mapping->entityType,
+                                'original_value_enc' => $mapping->originalValue,
+                                'detection_score' => $mapping->detectionScore,
+                            ]
+                        );
+                    }
                 }
-            }
-        });
+            });
 
-        Log::info('Email anonymized', ['email_id' => $email->id]);
+            $mappingCount = count($subjectResult->mappings) + count($bodyResult->mappings);
+
+            PipelineLog::record($email->id, 'anonymize', 'succeeded', $this->attempts(), payload: [
+                'outputs' => [
+                    'pii_mapping_count' => $mappingCount,
+                    'anonymized_subject_chars' => mb_strlen($subjectResult->anonymizedText),
+                    'anonymized_body_chars' => mb_strlen($bodyResult->anonymizedText),
+                ],
+            ], durationMs: $this->elapsedMs($start));
+
+            Log::info('Email anonymized', ['email_id' => $email->id]);
+        } catch (\Throwable $e) {
+            PipelineLog::record($email->id, 'anonymize', 'failed', $this->attempts(), $e->getMessage(), [
+                'error' => $e->getMessage(),
+            ], $this->elapsedMs($start));
+
+            throw $e;
+        }
+    }
+
+    private function elapsedMs(float $start): int
+    {
+        return (int) round((microtime(true) - $start) * 1000);
     }
 
     public function failed(\Throwable $exception): void

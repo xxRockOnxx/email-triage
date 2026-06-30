@@ -114,7 +114,7 @@ class EmailController extends Controller
 
     public function show(Email $email, PresidioAnonymizer $anonymizer): Response
     {
-        $email->load(['latestTriageResult.category', 'piiMappings', 'actionsLog']);
+        $email->load(['latestTriageResult.category', 'piiMappings', 'actionsLog', 'pipelineLogs']);
 
         // Active categories for the correction panel's category dropdown.
         $categories = Category::active()->orderBy('name')->get(['id', 'name']);

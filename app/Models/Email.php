@@ -68,6 +68,11 @@ class Email extends Model
         return $this->hasMany(ActionLog::class);
     }
 
+    public function pipelineLogs(): HasMany
+    {
+        return $this->hasMany(PipelineLog::class)->orderBy('recorded_at');
+    }
+
     public function scopeNeedsReview($query)
     {
         return $query->whereHas('latestTriageResult', fn ($q) => $q->where('status', 'needs_review'));

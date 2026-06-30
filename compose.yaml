@@ -23,6 +23,8 @@ services:
             - sail
         depends_on:
             - pgsql
+            - presidio-analyzer
+            - presidio-anonymizer
     pgsql:
         image: "pgvector/pgvector:0.8.2-pg18"
         ports:

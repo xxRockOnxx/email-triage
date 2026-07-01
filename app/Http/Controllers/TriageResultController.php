@@ -43,7 +43,7 @@ class TriageResultController extends Controller
             'suggested_action' => $validated['suggested_action'] ?? null,
         ], fn ($v) => $v !== null) + ['status' => TriageStatus::Corrected]);
 
-        $reputationService->recordTriage($triageResult->email, $triageResult->fresh());
+        $reputationService->reviseTriage($triageResult->email, $triageResult->fresh());
 
         return back()->with('success', 'Correction saved — this will improve future triage.');
     }

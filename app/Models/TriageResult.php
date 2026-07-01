@@ -30,6 +30,7 @@ class TriageResult extends Model
         'llm_model',
         'raw_llm_response',
         'rag_context_email_ids',
+        'reputation_snapshot',
     ];
 
     protected function casts(): array
@@ -43,6 +44,7 @@ class TriageResult extends Model
             'llm_suggested_action' => SuggestedAction::class,
             'raw_llm_response' => 'array',
             'rag_context_email_ids' => 'array',
+            'reputation_snapshot' => 'array',
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\DTOs\PiiMapping;
 use App\Enums\Urgency;
 use App\Models\Category;
 use App\Models\Email;
@@ -17,10 +18,10 @@ class EmailController extends Controller
      * Main triage queue. Supports filtering by status (needs_review/auto_filed),
      * category, and urgency via query params.
      */
-    public function index(Request $request): Response
+    public function index(Request $request, PresidioAnonymizer $anonymizer): Response
     {
         $query = Email::query()
-            ->with(['latestTriageResult.category'])
+            ->with(['latestTriageResult.category', 'piiMappings'])
             ->leftJoinSub(
                 $this->latestTriageResultSubquery(),
                 'latest_triage',
@@ -52,6 +53,17 @@ class EmailController extends Controller
         $this->applySorting($query, $request);
 
         $emails = $query->paginate(25)->withQueryString();
+
+        // De-anonymize each LLM summary in place so the queue shows real
+        // names/details, matching the detail page. The LLM only ever saw
+        // anonymized text, so its summary otherwise holds [PERSON_1]-style
+        // placeholders.
+        foreach ($emails as $email) {
+            $triage = $email->latestTriageResult;
+            if ($triage?->summary) {
+                $triage->summary = $this->deanonymizedSummary($email, $anonymizer);
+            }
+        }
 
         return Inertia::render('Emails/Index', [
             'emails' => $emails,
@@ -121,23 +133,35 @@ class EmailController extends Controller
 
         // De-anonymize the LLM's summary for display so the user sees real
         // names/details, even though the LLM itself never saw them.
-        $summary = $email->latestTriageResult?->summary;
-
-        $mappingDtos = $email->piiMappings->map(fn ($m) => new \App\DTOs\PiiMapping(
-            placeholder: $m->placeholder,
-            entityType: $m->entity_type,
-            originalValue: $m->original_value_enc, // decrypted transparently via the model cast
-            detectionScore: $m->detection_score,
-        ))->all();
-
-        $deanonymizedSummary = $summary
-            ? $anonymizer->deanonymize($summary, $mappingDtos)
-            : null;
+        $deanonymizedSummary = $this->deanonymizedSummary($email, $anonymizer);
 
         return Inertia::render('Emails/Show', [
             'email' => $email,
             'deanonymized_summary' => $deanonymizedSummary,
             'categories' => $categories,
         ]);
+    }
+
+    /**
+     * Reverses anonymization on an email's latest triage summary so the UI
+     * shows real names/details, even though the LLM only saw anonymized text.
+     * Returns null when there is no summary yet (awaiting triage).
+     */
+    private function deanonymizedSummary(Email $email, PresidioAnonymizer $anonymizer): ?string
+    {
+        $summary = $email->latestTriageResult?->summary;
+
+        if (! $summary) {
+            return null;
+        }
+
+        $mappings = $email->piiMappings->map(fn ($m) => new PiiMapping(
+            placeholder: $m->placeholder,
+            entityType: $m->entity_type,
+            originalValue: $m->original_value_enc, // decrypted transparently via the model cast
+            detectionScore: $m->detection_score,
+        ))->all();
+
+        return $anonymizer->deanonymize($summary, $mappings);
     }
 }

@@ -130,7 +130,7 @@ const STATUS_LABEL = {
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">
           <h1 class="text-lg font-semibold text-ink truncate">
-            {{ email.anonymized_subject || '(no subject)' }}
+            {{ email.subject_enc || '(no subject)' }}
           </h1>
           <p class="text-sm text-ink-soft mt-1">
             From <span class="font-medium text-ink">{{ email.sender_name || email.sender_email }}</span>

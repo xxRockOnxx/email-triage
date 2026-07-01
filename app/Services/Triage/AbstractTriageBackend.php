@@ -17,6 +17,7 @@ abstract class AbstractTriageBackend implements TriageBackendContract
     protected function systemPrompt(TriageRequest $request): string
     {
         $categorySection = $this->formatCategoryInstructions($request);
+        $actionSection = $this->formatActionInstructions();
         $ragSection = $this->formatRagExamples($request);
         $reputationSection = $this->formatReputation($request);
 
@@ -27,6 +28,8 @@ abstract class AbstractTriageBackend implements TriageBackendContract
             placeholder — treat placeholders as opaque tokens.
 
             {$categorySection}
+
+            {$actionSection}
 
             {$reputationSection}
             {$ragSection}
@@ -86,6 +89,45 @@ abstract class AbstractTriageBackend implements TriageBackendContract
             PROMPT;
     }
 
+    /**
+     * Criteria for "suggested_action" and "confidence". Framed as defaults
+     * rather than fixed rules, and explicitly subordinate to the RAG
+     * examples section below (user corrections are ground truth) — without
+     * that precedence stated outright, a static rule and a conflicting past
+     * correction would compete with no way for the model to arbitrate.
+     */
+    private function formatActionInstructions(): string
+    {
+        return <<<PROMPT
+            Choose "suggested_action" using these as DEFAULT guidance, not fixed rules:
+            - "reply": addressed to the user and expects a response, answer, decision,
+              or action from them personally (a direct question, request for input,
+              meeting proposal). Also draft "suggested_reply_draft" in this case.
+            - "flag": important and needs the user's personal attention or a decision
+              soon, but doesn't itself need a reply.
+            - "delete": obviously spam, phishing, or worthless with no informational
+              value to anyone.
+            - "archive": informational or resolved, worth keeping for reference but
+              needing no action. Default here only when reply/flag/delete clearly
+              don't apply — not as a catch-all for anything you're unsure about.
+            - "none": you genuinely cannot determine an action from the content (rare).
+
+            IMPORTANT — precedence: the above are fallback defaults for when you have
+            no other signal. If a similar past email below (especially one marked USER
+            CORRECTION) shows this sender, category, or type of content being handled
+            differently, follow that precedent instead of the default — it reflects
+            this user's actual preference and should win.
+
+            Set "confidence" (0-100) honestly per email based on how clearly the content
+            supports both the category and action — vary it, don't default to a fixed
+            number:
+            - 90-100: category and action both clearly supported by the content.
+            - 70-89: one is clear, the other is a reasonable judgment call.
+            - 40-69: ambiguous, very short, or boilerplate content.
+            - Below 40: almost no signal to go on.
+            PROMPT;
+    }
+
     private function formatRagExamples(TriageRequest $request): string
     {
         if (empty($request->ragExamples)) {
@@ -118,8 +160,11 @@ abstract class AbstractTriageBackend implements TriageBackendContract
             return "This is the first email seen from this sender — no history available.\n";
         }
 
-        return "Sender history: {$rep->emailCount} prior emails, most commonly categorized as ".
-               "\"{$rep->mostCommonCategory}\", most common action taken: \"{$rep->mostCommonAction}\".\n";
+        return "Background only — sender history: {$rep->emailCount} prior emails, most commonly ".
+               "categorized as \"{$rep->mostCommonCategory}\", most common action taken: ".
+               "\"{$rep->mostCommonAction}\". Do NOT default to this action just because it's common ".
+               "for this sender — judge THIS email's own content first, and only use sender history ".
+               "as a tiebreaker when the content itself is ambiguous.\n";
     }
 
     /**

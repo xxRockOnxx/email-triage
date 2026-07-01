@@ -25,6 +25,16 @@ const STATUS_BADGE = {
   skipped: 'text-ink-faint',
 };
 
+function formatDuration(ms) {
+  const seconds = ms / 1000;
+  if (seconds >= 60) {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${minutes}m ${secs}s`;
+  }
+  return `${seconds.toFixed(2)}s`;
+}
+
 function formatDateTime(iso) {
   return new Date(iso).toLocaleString(undefined, {
     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
@@ -66,7 +76,7 @@ function pretty(payload) {
             <span v-if="log.attempt > 1" class="text-ink-faint">att. {{ log.attempt }}</span>
 
             <span v-if="log.duration_ms != null" class="text-ink-faint font-mono-tabular">
-              {{ log.duration_ms }}ms
+              {{ formatDuration(log.duration_ms) }}
             </span>
 
             <span

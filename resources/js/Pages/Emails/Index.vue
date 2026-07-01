@@ -20,6 +20,7 @@ const STATUS_TABS = [
   { value: 'needs_review', label: 'Needs review' },
   { value: 'auto_filed', label: 'Auto-filed' },
   { value: 'corrected', label: 'Corrected' },
+  { value: 'failed', label: 'Failed' },
 ];
 
 function applyFilter(key, value) {

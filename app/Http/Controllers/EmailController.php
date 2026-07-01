@@ -32,7 +32,13 @@ class EmailController extends Controller
             ->select('emails.*');
 
         if ($status = $request->query('status')) {
-            $query->whereHas('latestTriageResult', fn ($q) => $q->where('status', $status));
+            // 'failed' is a pipeline status (no triage result exists), so it
+            // filters on the email rather than latestTriageResult.
+            if ($status === 'failed') {
+                $query->failed();
+            } else {
+                $query->whereHas('latestTriageResult', fn ($q) => $q->where('status', $status));
+            }
         }
 
         if ($categoryId = $request->query('category_id')) {

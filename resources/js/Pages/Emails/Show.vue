@@ -19,6 +19,19 @@ const props = defineProps({
 
 const triage = computed(() => props.email.latest_triage_result);
 
+const isFailed = computed(() => props.email.pipeline_status === 'failed');
+
+// Latest recorded failure message — pulled from the pipeline log (the job's
+// catch block writes a 'failed' row with the exception message before the
+// chain's catch flips the email status).
+const failureMessage = computed(() => {
+  const logs = props.email.pipeline_logs ?? [];
+  for (let i = logs.length - 1; i >= 0; i--) {
+    if (logs[i].status === 'failed') return logs[i].message;
+  }
+  return 'The triage pipeline failed unexpectedly.';
+});
+
 const sanitizedBody = computed(() => {
     // Prefer the HTML body for rich rendering; fall back to the plain-text
     // body for text-only emails and pre-existing rows without body_html_enc.
@@ -239,6 +252,22 @@ const STATUS_LABEL = {
       </div>
     </div>
 
+    <div
+      v-else-if="isFailed"
+      class="bg-urgency-critical-bg border border-urgency-critical/30 rounded-lg p-5 mb-4"
+    >
+      <div class="flex items-center gap-2 mb-1">
+        <span class="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider font-medium bg-urgency-critical text-surface">
+          Failed
+        </span>
+        <span class="text-sm font-medium text-urgency-critical">Triage failed</span>
+      </div>
+      <p class="text-sm text-urgency-critical/90">{{ failureMessage }}</p>
+      <p class="text-xs text-urgency-critical/70 mt-2">
+        See the processing log below for the full stage breakdown.
+      </p>
+    </div>
+
     <div v-else class="bg-surface-sunken border border-border rounded-lg p-5 mb-4 text-sm text-ink-faint">
       Triage in progress — check back shortly.
     </div>
@@ -315,7 +344,7 @@ const STATUS_LABEL = {
             <div v-if="log.action_type === 'delete' && !log.undone_at">
               <ActionButton
                 label="Undo"
-                class="hover:text-danger transition-colors"
+                class="hover:text-urgency-critical transition-colors"
                 @click="undo(log.id)"
               />
             </div>

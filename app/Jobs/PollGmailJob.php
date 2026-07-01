@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Contracts\MailProviderContract;
+use App\Enums\PipelineStatus;
 use App\Models\Email;
 use App\Models\GmailSyncState;
 use Illuminate\Bus\Queueable;
@@ -67,11 +68,19 @@ class PollGmailJob implements ShouldQueue, ShouldBeUnique
                 'last_error' => null,
             ]);
 
+            Email::whereKey($newEmailIds)
+                ->update(['pipeline_status' => PipelineStatus::Processing]);
+
             foreach ($newEmailIds as $emailId) {
                 Bus::chain([
                     new AnonymizeEmailJob($emailId),
                     new TriageEmailJob($emailId),
                 ])->catch(function (\Throwable $e) use ($emailId) {
+                    // The chain failed permanently (after retries). This is the
+                    // authoritative failure sink — surface it on the email so
+                    // the UI can show it rather than "Awaiting triage…".
+                    Email::whereKey($emailId)->update(['pipeline_status' => PipelineStatus::Failed]);
+
                     Log::error('Email pipeline failed', [
                         'email_id' => $emailId,
                         'error' => $e->getMessage(),

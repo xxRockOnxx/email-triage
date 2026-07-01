@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PipelineStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -27,6 +28,7 @@ class Email extends Model
         'gmail_headers',
         'is_anonymized',
         'anonymized_at',
+        'pipeline_status',
         'received_at',
         'polled_at',
     ];
@@ -43,6 +45,7 @@ class Email extends Model
             'gmail_headers' => 'array',
             'is_anonymized' => 'boolean',
             'anonymized_at' => 'datetime',
+            'pipeline_status' => PipelineStatus::class,
             'received_at' => 'datetime',
             'polled_at' => 'datetime',
         ];
@@ -81,5 +84,10 @@ class Email extends Model
     public function scopeAutoFiled($query)
     {
         return $query->whereHas('latestTriageResult', fn ($q) => $q->where('status', 'auto_filed'));
+    }
+
+    public function scopeFailed($query)
+    {
+        return $query->where('pipeline_status', PipelineStatus::Failed);
     }
 }

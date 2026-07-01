@@ -65,13 +65,21 @@ function runAction() {
     >
     <div
       class="urgency-spine"
-      :class="`urgency-spine--${email.latest_triage_result?.urgency ?? 'low'}`"
+      :class="email.pipeline_status === 'failed'
+        ? 'urgency-spine--critical'
+        : `urgency-spine--${email.latest_triage_result?.urgency ?? 'low'}`"
     />
 
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2 mb-1">
         <span class="text-sm font-medium text-ink truncate max-w-[220px]">
           {{ email.sender_name || email.sender_email }}
+        </span>
+        <span
+          v-if="email.pipeline_status === 'failed'"
+          class="px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider font-medium bg-urgency-critical-bg text-urgency-critical"
+        >
+          Failed
         </span>
         <CategoryPill
           v-if="email.latest_triage_result?.category"
@@ -83,8 +91,10 @@ function runAction() {
           pending
         />
       </div>
-      <p class="text-sm text-ink-soft">
-        {{ email.latest_triage_result?.summary || 'Awaiting triage…' }}
+      <p class="text-sm" :class="email.pipeline_status === 'failed' ? 'text-urgency-critical' : 'text-ink-soft'">
+        {{ email.pipeline_status === 'failed'
+          ? 'Triage failed'
+          : (email.latest_triage_result?.summary || 'Awaiting triage…') }}
       </p>
     </div>
 

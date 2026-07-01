@@ -9,17 +9,18 @@ const STAGE_LABEL = {
   embed: 'Embed',
 };
 
-// Dot color per status, mirroring the Activity timeline's accent/danger usage.
+// Dot color per status. The palette has no "danger" token, so failure reuses
+// urgency-critical (the same red ActionButton uses for its danger variant).
 const STATUS_DOT = {
   succeeded: 'bg-accent',
-  failed: 'bg-danger',
+  failed: 'bg-urgency-critical',
   started: 'bg-ink-faint',
   skipped: 'bg-ink-faint',
 };
 
 const STATUS_BADGE = {
   succeeded: 'text-accent',
-  failed: 'text-danger',
+  failed: 'text-urgency-critical',
   started: 'text-ink-soft',
   skipped: 'text-ink-faint',
 };

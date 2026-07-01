@@ -24,6 +24,7 @@ class DashboardController extends Controller
                     ->where('status', '!=', 'corrected')
                     ->whereHas('email', fn ($q) => $q->whereDoesntHave('actionsLog'))
                     ->count(),
+                'failed_pipeline_count' => Email::where('pipeline_status', 'failed')->count(),
             ],
             'sync_state' => GmailSyncState::first(),
             'next_poll_at' => $this->getNextPollTime()->format('c'),

@@ -6,6 +6,7 @@ use App\Contracts\EmbeddingBackendContract;
 use App\Contracts\TriageBackendContract;
 use App\Contracts\VectorStoreContract;
 use App\DTOs\TriageRequest;
+use App\Enums\PipelineStatus;
 use App\Models\Email;
 use App\Models\PipelineLog;
 use App\Models\TriageResult;
@@ -163,6 +164,10 @@ class TriageEmailJob implements ShouldQueue
                 durationMs: $this->elapsedMs($start),
                 triageResultId: $triage->id,
             );
+
+            // The anonymize→triage chain is done — mark the pipeline completed
+            // so it no longer reads as in-flight (or failed from a prior run).
+            Email::whereKey($email->id)->update(['pipeline_status' => PipelineStatus::Completed]);
 
             Log::info('Email triaged', [
                 'email_id' => $email->id,

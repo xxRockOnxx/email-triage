@@ -101,6 +101,12 @@ usePoll(1000)
         :href="route('emails.index', { urgency: 'critical' })"
       />
       <StatCard
+        label="Failed pipelines"
+        :value="stats.failed_pipeline_count"
+        :tone="stats.failed_pipeline_count > 0 ? 'critical' : 'default'"
+        :href="route('emails.index', { status: 'failed' })"
+      />
+      <StatCard
         label="Pending categories"
         :value="stats.pending_categories"
         :href="route('categories.index')"
